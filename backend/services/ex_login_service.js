@@ -1,8 +1,11 @@
-// service에서 필요에 따라 db에 접속 => mapper
-const mariadb = require("../database/mapper.js");
+// 각자 자신이 구현하는 기능에 맞게 파일을 추가하기, 대신 파일명에 어떤 기능인지 알기 쉽게 영문으로 적어주는 걸 권장
 
+// service에서 필요에 따라 db에 접속 => mapper
+const mariadb = require("../database/mapper/mapper.js");
+
+// 해당하는 기능을 svc라는 변수에 객체 형식으로 넣기
 const svc = {
-  findAll: async () => {
+  findAll /* 예시 변수명, 예시 변수명은 다른 사람과 겹치지 않도록 작성 예시) psw_login */: async () => {
     const list = await mariadb
       .query("selectBookList")
       .catch((err) => console.error(err));
@@ -36,14 +39,15 @@ const svc = {
   },
 };
 
-function convertObjToAry(target) {
-  return [
-    target.name,
-    target.writer,
-    target.publisher,
-    target.publication_date,
-    target.info,
-  ];
-}
-// 외부로 내보내기
+// function convertObjToAry(target) {
+//   return [
+//     target.name,
+//     target.writer,
+//     target.publisher,
+//     target.publication_date,
+//     target.info,
+//   ];
+// }
+
+// 같은 경로에 있는 svc.js 내보내기
 module.exports = svc;

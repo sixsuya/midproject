@@ -9,8 +9,8 @@ app.get("/", (req, res) => {
   res.send("Welcome!");
 });
 
-
-// app.use("/", );
+const Router = require("./router/router.js");
+app.use("/", Router);
 
 // 서버 실행
 const port = 3000;
