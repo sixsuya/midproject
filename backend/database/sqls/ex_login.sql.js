@@ -6,16 +6,11 @@
 // export하고 sqList.js에서 require부분에 해당 폴더 경로를 추가해주기
 
 const qry = {
-  abc/* 예시 변수명 대신 이 변수명은 수정할때 자신이 만든 변수라는 걸 구별할수 있게 수정 필요. 예시) psw_login
+  selectBookList/* 예시 변수명 대신 이 변수명은 수정할때 자신이 만든 변수라는 걸 구별할수 있게 수정 필요. 예시) psw_login
   다른사람이랑 이 변수명이 겹치면 누군가는 덮어씌워질 수 있음 */
   : `
-SELECT no 
-        , name 
-        , writer 
-        , publisher 
-        , publication_date 
-        , info 
-FROM t_book_01 
+SELECT *
+FROM main_code
 ORDER BY 1
 ` /* 예시 쿼리문임 */,
 

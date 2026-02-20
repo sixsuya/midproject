@@ -2,16 +2,15 @@
 // export하고 같은 경로의 svc.js에서 require부분에 해당 폴더 경로를 추가해주기
 
 // service에서 필요에 따라 db에 접속 => mapper
-const mariadb = require("../database/mapper/mapper.js"); // mapper가져오기. mapper.js가 모든 서비스 모여있는 곳이라서 이 경로를 가져오면 됨
+const query = require("../database/mapper/mapper.js"); // mapper가져오기. mapper.js가 모든 서비스 모여있는 곳이라서 이 경로를 가져오면 됨
 
 // 해당하는 기능을 svc라는 변수에 객체 형식으로 넣기
 const svc = {
   findAll /* 예시 변수명, 예시 변수명은 다른 사람과 겹치지 않도록 작성 예시) psw_login */: async () => {
-    const list = await mariadb
-      .query("selectBookList")
+    const list = await query("selectBookList")
       .catch((err) => console.error(err));
     return list;
-  },
+  }/* ,
   findByBookNo: async (bookNo) => {
     const list = await mariadb
       .query("selectBookOne", bookNo)
@@ -37,7 +36,7 @@ const svc = {
       }
     }
     return result;
-  },
+  }, */
 };
 
 // function convertObjToAry(target) {
