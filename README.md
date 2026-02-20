@@ -29,6 +29,7 @@ git merge develop (로컬에서 강제 병합 후 push)
 예:
 
 feature/seongsu_login
+
 feature/jinhwan_dbconnect
 
 
@@ -87,5 +88,6 @@ git pull origin develop
 git checkout feature/브랜치명
 git merge develop
 
-충돌 해결 → commit → push<img width="1150" height="1524" alt="git-model@2x" src="https://github.com/user-attachments/assets/2034728c-63b6-4f87-974e-35433ebb1220" />
+충돌 해결 → commit → push
+
 <img width="1150" height="1524" alt="git-model@2x" src="https://github.com/user-attachments/assets/f899e618-8bcd-4353-8bd1-f3c1ae44672e" />
