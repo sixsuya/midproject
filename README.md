@@ -1,4 +1,5 @@
 # midproject
+
 1차 프로젝트
 main branch는 최종 배포를 위한 branch
 develop branch는 개인별 작업물을 통합하는 branch

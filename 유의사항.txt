@@ -1,0 +1,12 @@
+cmd 창을 열고 
+backend 경로에서 npm install 한번
+frontend 경로에서 npm install 한번 하기
+
+백엔드와 프론트엔드에서 각자 개발하면서 npm install "모듈" 명령어를 통해
+자신이 개발하는 기능에 필요한 모듈을 다운 받는 경우가 발생 헐 수 있음
+
+실제로 설치 파일은 node_modules에 들어가고 어떤 파일을 설치했는지 영수증 형태로 package.json에 들어감
+그런데 git 공유를 할 때 큰 용량을 지원을 안해주기 때문에 
+설치파일이 있는 node_modules가 아닌 영수증 형태인 package.json만 공유가 됨
+따라서 cmd 창을 열어서 backend와 frontend 각각 경로에 대해서 
+npm install을 통해 설치파일을 최신화 해주는 것이 필요 
