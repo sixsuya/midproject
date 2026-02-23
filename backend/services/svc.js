@@ -1,6 +1,7 @@
 // 자신이 추가한 경로를 변수 선언과 함께 여기에 추가해줘야함.
 // 이건 조원들이 계속 추가하는 구조라서 merge할 때 conflict가 나게 됨
 const login_service = require("./ex_login_service");
+const support_service = require("./jh_support_service");
 const psw_survey = require("./psw_survey_service.js");
 
 // 선언한 변수를 ...과 함께 아래에 추가해줘야함.
@@ -8,5 +9,6 @@ const psw_survey = require("./psw_survey_service.js");
 module.exports = {
   // spread operator을 활용
   ...login_service,
+  ...support_service,
   ...psw_survey,
 };

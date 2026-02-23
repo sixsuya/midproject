@@ -6,6 +6,7 @@ import Tables from "../views/Tables.vue";
 import Profile from "../views/Profile.vue";
 import Signup from "../views/Signup.vue";
 import Signin from "../views/Signin.vue";
+import SupportPlan from "../views/SupportPlan.vue";
 import FindId from "../views/FindId.vue"; // 아이디 찾기
 import FindPassword from "../views/FindPassword.vue"; // 비밀번호 찾기
 import ResetPassword from "../views/ResetPassword.vue"; // 비밀번호 재설정
@@ -41,6 +42,11 @@ const routes = [
     path: "/signup",
     name: "Signup",
     component: Signup,
+  },
+  {
+    path: "/support-plan",
+    name: "SupportPlan",
+    component: SupportPlan,
   },
   {
     path: "/find-id",
