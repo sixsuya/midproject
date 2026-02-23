@@ -47,6 +47,18 @@ const getRoute = () => {
         </sidenav-item>
       </li>
 
+      <li class="nav-item">
+        <sidenav-item
+          to="/support-plan"
+          :class="getRoute() === 'support-plan' ? 'active' : ''"
+          :navText="isRTL ? 'دعم الخطة' : '지원계획'"
+        >
+          <template v-slot:icon>
+            <i class="ni ni-single-copy-04 text-info text-sm opacity-10"></i>
+          </template>
+        </sidenav-item>
+      </li>
+
       <li class="mt-3 nav-item">
         <h6
           v-if="isRTL"
