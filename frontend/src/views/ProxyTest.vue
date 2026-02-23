@@ -2,6 +2,7 @@
 import { ref, onMounted } from "vue";
 import axios from "axios";
 
+// 1. 기본 프록시 테스트 (GET /api/hello)
 const result = ref(null);
 const loading = ref(false);
 const error = ref(null);
@@ -11,8 +12,6 @@ async function testProxy() {
   error.value = null;
   result.value = null;
   try {
-    // vue.config.js proxy: /api -> http://localhost:3000, pathRewrite로 /api 제거
-    // 따라서 /api/hello -> http://localhost:3000/hello
     const res = await axios.get("/api/hello");
     result.value = res.data;
   } catch (e) {
@@ -25,20 +24,50 @@ async function testProxy() {
   }
 }
 
+// 2. psw_survey 테스트 (router → service → database, GET /api/survey)
+const surveyResult = ref(null);
+const surveyLoading = ref(false);
+const surveyError = ref(null);
+
+async function testPswSurvey() {
+  surveyLoading.value = true;
+  surveyError.value = null;
+  surveyResult.value = null;
+  try {
+    const res = await axios.get("/api/survey");
+    surveyResult.value = Array.isArray(res.data) ? res.data : res.data;
+  } catch (e) {
+    surveyError.value = e.message || String(e);
+    if (e.response) {
+      surveyError.value += ` (${e.response.status})`;
+    }
+  } finally {
+    surveyLoading.value = false;
+  }
+}
+
 onMounted(() => {
   testProxy();
+  testPswSurvey();
 });
 </script>
 
+<!--
+  스타일 클래스 출처 (페이지 통일성용):
+  - Bootstrap 5 (package.json: "bootstrap": "5.3.3")
+  - Argon Dashboard 테마: src/argon-dashboard.js → assets/scss/argon-dashboard.scss
+  - 레이아웃: Dashboard.vue, Tables.vue와 동일하게 py-4 container-fluid + row + col-12 사용
+  - 자세한 활용법: frontend/STYLE_GUIDE.md 참고
+-->
 <template>
   <div class="py-4 container-fluid">
     <div class="row">
       <div class="col-12">
-        <div class="card">
+        <div class="card mb-4">
           <div class="card-header pb-0">
-            <h5>프록시 테스트</h5>
+            <h5>1. 기본 프록시 테스트</h5>
             <p class="text-sm text-muted mb-0">
-              Vue devServer proxy 설정 확인: <code>/api</code> → <code>http://localhost:3000</code>
+              <code>/api</code> → <code>http://localhost:3000</code> (GET /api/hello)
             </p>
           </div>
           <div class="card-body">
@@ -52,13 +81,39 @@ onMounted(() => {
             <div v-if="loading" class="text-muted">백엔드에 요청 중...</div>
             <div v-else-if="error" class="alert alert-danger mb-0">
               <strong>실패:</strong> {{ error }}
-              <div class="mt-2 small">
-                백엔드가 <code>npm run dev</code>로 실행 중인지, 포트 3000인지 확인하세요.
-              </div>
             </div>
             <div v-else-if="result" class="alert alert-success mb-0">
               <strong>프록시 정상 동작</strong>
               <pre class="mb-0 mt-2 text-dark">{{ JSON.stringify(result, null, 2) }}</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header pb-0">
+            <h5>2. psw_survey 테스트 (테스트를 위해 더미데이터가 존재하는 main_code의 값을 가져옴)</h5>
+            <p class="text-sm text-muted mb-0">
+              router (<code>psw_survey_router</code>) → service (<code>psw_survey_service</code>) → database (<code>psw_survey_sql</code>), GET <code>/api/survey</code>
+            </p>
+          </div>
+          <div class="card-body">
+            <button
+              class="btn btn-outline-primary btn-sm mb-3"
+              :disabled="surveyLoading"
+              @click="testPswSurvey"
+            >
+              {{ surveyLoading ? "요청 중..." : "설문 목록 조회 테스트" }}
+            </button>
+            <div v-if="surveyLoading" class="text-muted">설문 목록 요청 중...</div>
+            <div v-else-if="surveyError" class="alert alert-danger mb-0">
+              <strong>실패:</strong> {{ surveyError }}
+              <div class="mt-2 small">
+                DB 연결 및 <code>survey</code> 테이블 존재 여부를 확인하세요.
+              </div>
+            </div>
+            <div v-else-if="surveyResult !== null" class="alert alert-success mb-0">
+              <strong>설문 목록 조회 성공</strong>
+              <pre class="mb-0 mt-2 text-dark">{{ JSON.stringify(surveyResult, null, 2) }}</pre>
             </div>
           </div>
         </div>
