@@ -9,19 +9,19 @@ const userName = "홍길동";
 const orgName = "대구 남구 지원센터";
 const orgAdminName = "김태균";
 
-const routes = useRouter();
-const route = useRoute();
-
-// ✅ /organmanager 로 시작하면 기관관리자 영역으로 판단
-const isOrganManagerRoute = computed(() =>
-  route.path.startsWith("/organmanager"),
-);
-
-const isManagerRoute = computed(() => route.path.startsWith("/manager"));
-
 // 담당자 더미 정보
 const managerOrgName = "대구 남구 지원센터";
 const managerName = "김래원";
+
+const routes = useRouter();
+const route = useRoute();
+
+// ✅로그인한 경로에 따라 권한 확인
+const isOrganManagerRoute = computed(() =>
+  route.path.startsWith("/organmanager"),
+);
+const isManagerRoute = computed(() => route.path.startsWith("/manager"));
+const isSystemAdminRoute = computed(() => route.path.startsWith("/admin"));
 
 // 로그아웃 버튼 동작(예시)
 const onLogout = async () => {
@@ -36,9 +36,15 @@ const greetingText = computed(() => {
   if (isManagerRoute.value) {
     return `${managerOrgName} | ${managerName} 담당자님`;
   }
-
+  if (isSystemAdminRoute.value) return `시스템관리자님`;
   return `${userName} 님 반갑습니다!`;
 });
+
+// ✅ 시스템관리자 메뉴(라우터 없이 alert)
+const onSystemMenuClick = (label) => {
+  alert(`${label} 메뉴 클릭`);
+};
+
 // ✅ 메뉴를 경로별로 구성
 const navItems = computed(() => {
   if (isOrganManagerRoute.value) {
@@ -63,6 +69,16 @@ const navItems = computed(() => {
       { label: "홈", to: "/manager", icon: "ni ni-shop" },
       // ❌ 지원신청 제거
       // 나중에 필요하면 "내 담당목록" 추가 가능
+    ];
+  }
+
+  if (isSystemAdminRoute.value) {
+    return [
+      { label: "기관", type: "button", icon: "ni ni-building" },
+      { label: "기관관리자", type: "button", icon: "ni ni-single-02" },
+      { label: "기관담당자", type: "button", icon: "ni ni-badge" },
+      { label: "지원신청현황", type: "button", icon: "ni ni-chart-bar-32" },
+      { label: "지원서", type: "button", icon: "ni ni-single-copy-04" },
     ];
   }
 
@@ -91,12 +107,25 @@ const navItems = computed(() => {
 
         <!-- 링크들 -->
         <ul class="navbar-nav flex-row gap-3 align-items-center">
-          <li class="nav-item" v-for="item in navItems" :key="item.to">
+          <li class="nav-item" v-for="item in navItems" :key="item.label">
+            <!-- ✅ 시스템관리자: 버튼(라우터 X) -->
+            <button
+              v-if="item.type === 'button'"
+              type="button"
+              class="nav-link text-dark px-2 py-2 d-flex align-items-center gap-1 btn btn-link mb-0"
+              @click="onSystemMenuClick(item.label)"
+            >
+              <i v-if="item.icon" :class="`${item.icon} text-sm`"></i>
+              <span>{{ item.label }}</span>
+            </button>
+
+            <!-- ✅ 나머지: RouterLink -->
             <RouterLink
+              v-else
               class="nav-link text-dark px-2 py-2 d-flex align-items-center gap-1"
               :to="item.to"
             >
-              <i :class="`${item.icon} text-sm`"></i>
+              <i v-if="item.icon" :class="`${item.icon} text-sm`"></i>
               <span>{{ item.label }}</span>
             </RouterLink>
           </li>
@@ -109,7 +138,11 @@ const navItems = computed(() => {
           {{ greetingText }}
         </span>
 
-        <RouterLink class="btn btn-outline-secondary btn-sm mb-0" to="/mypage">
+        <RouterLink
+          v-if="!isSystemAdminRoute"
+          class="btn btn-outline-secondary btn-sm mb-0"
+          to="/mypage"
+        >
           마이페이지
         </RouterLink>
 

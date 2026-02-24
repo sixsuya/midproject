@@ -11,6 +11,7 @@ import FindId from "../views/FindId.vue";
 import FindPassword from "../views/FindPassword.vue";
 import ResetPassword from "../views/ResetPassword.vue";
 import ProxyTest from "../views/ProxyTest.vue";
+import AdminLayout from "@/views/AdminLayout.vue"; // 새로 만들 파일
 
 const routesList = [
   // 1) 지원자(기존) 영역: MainLayout 아래
@@ -59,6 +60,20 @@ const routesList = [
         path: "managers",
         name: "organmanager-managers",
         component: () => import("@/views/organmanager/ManagerList.vue"),
+      },
+    ],
+  },
+
+  // 3) 시스템관리자 영역: AdminLayout 아래
+
+  {
+    path: "/admin",
+    component: AdminLayout,
+    children: [
+      {
+        path: "",
+        name: "admin-home",
+        component: () => import("@/views/admin/AdminHome.vue"),
       },
     ],
   },
