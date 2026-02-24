@@ -11,6 +11,7 @@ import FindId from "../views/FindId.vue";
 import FindPassword from "../views/FindPassword.vue";
 import ResetPassword from "../views/ResetPassword.vue";
 import ProxyTest from "../views/ProxyTest.vue";
+import ManagerControl from "@/views/ManagerControl.vue";
 
 const routesList = [
   // 1) 지원자(기존) 영역: MainLayout 아래
@@ -117,6 +118,11 @@ const routesList = [
     path: "/login",
     name: "login",
     component: () => import("@/views/auth/LoginPage.vue"),
+  },
+  {
+    path: "/manager-control",
+    name: "managerControl",
+    component: ManagerControl,
   },
 ];
 
