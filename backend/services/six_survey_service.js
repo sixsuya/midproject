@@ -1,6 +1,37 @@
 const pools = require("../database/mapper/pools");
 const surveySql = require("../database/sqls/six_survey_sql");
 
+// 조사지 리스트 선정하기
+exports.getSurveyList = async () => {
+  let conn;
+  try {
+    conn = await pools.getConnection();
+    const rows = await conn.query(surveySql.selectSurveyList);
+
+    const dataRows = Array.isArray(rows)
+      ? rows.filter((r) => r && r.sver_code)
+      : [];
+    return dataRows;
+  } finally {
+    if (conn) conn.release();
+  }
+};
+
+// ✅ 지원대상자 목록
+exports.getTargets = async () => {
+  let conn;
+  try {
+    conn = await pools.getConnection();
+    const rows = await conn.query(surveySql.selectTargets);
+    const dataRows = Array.isArray(rows)
+      ? rows.filter((r) => r && r.mc_pn)
+      : [];
+    return dataRows;
+  } finally {
+    if (conn) conn.release();
+  }
+};
+
 exports.getSurveyTree = async (sverCode) => {
   let conn;
   try {

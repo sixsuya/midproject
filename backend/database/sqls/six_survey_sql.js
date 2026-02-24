@@ -19,3 +19,28 @@ exports.selectSurveyTree = `
   WHERE s.sver_code = ?
   ORDER BY mj.major_code, sb.sub_code, q.q_no
 `;
+
+// ✅ 지원대상자 목록(셀렉트용)
+exports.selectTargets = `
+  SELECT
+    mc_pn,
+    mc_nm,
+    mc_bd,
+    mc_gender,
+    mc_address,
+    mc_type,
+    gdn_no,
+    mc_submitdate
+  FROM dsbl_prs
+  ORDER BY mc_submitdate DESC
+`;
+
+// ✅ 조사지 목록
+exports.selectSurveyList = `
+  SELECT
+    sver_code,
+    sv_name,
+    sv_time
+  FROM survey
+  ORDER BY sv_time DESC
+`;
