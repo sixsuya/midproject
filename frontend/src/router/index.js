@@ -118,6 +118,16 @@ const routesList = [
     name: "login",
     component: () => import("@/views/auth/LoginPage.vue"),
   },
+  {
+    path: "/systemSurveyList",
+    name: "systemSurveyList",
+    component: () => import("../views/SystemManager_survey.vue"),
+  },
+  {
+    path: "/systemSurveyForm",
+    name: "SystemManagerSurveyForm",
+    component: () => import("../views/systemmanager_surveyComp/SurveyForm.vue"),
+  },
 ];
 
 const routes = createRouter({
