@@ -1,71 +1,70 @@
 <script setup>
-// Component Import
 import SupportPlanHeader from "./components/SupportPlanHeader.vue";
 import SupportPlanDetail from "./components/SupportPlanDetail.vue";
-
-// Vue Import
 import { onBeforeMount } from "vue";
-
-// Vue Router Import
 import { useRoute } from "vue-router";
+import { useSupportStore } from "../store/support.js";
+import { storeToRefs } from "pinia";
+
 const route = useRoute();
 const supportCode = route.params.supportCode;
-
-// Store Import
-import { useSupportStore } from "../store/support.js";
 const supportStore = useSupportStore();
-
-// Pinia Import
-import { storeToRefs } from "pinia";
-const { detail } = storeToRefs(supportStore);
+const { detail, infoData } = storeToRefs(supportStore);
 const { supportPlanDetail } = supportStore;
+// TODO: 로그인 연동 시 store/권한에서 가져오기
+const memberRole = "a0_40";
 
 onBeforeMount(() => {
   supportPlanDetail(supportCode);
 });
 
-// button event
 function updHistory() {
   console.log("수정이력");
-  // modal창 구현
 }
 function result() {
   console.log("결과조회");
-  // modal창 구현
 }
 function edit() {
   console.log("수정");
-  // 수정 기능 활성화
-  // 수정완료 버튼 활성화
 }
 function approve() {
   console.log("승인");
-  // modal창 구현
 }
 function supple() {
   console.log("보완");
 }
 function reject() {
   console.log("반려");
-  // modal창 구현
 }
 </script>
 <template>
-  <SupportPlanHeader :summary="detail?.summary ?? {}" />
-  <SupportPlanDetail
-    v-for="item in (detail?.data ?? [])"
-    :key="item.plan_code"
-    :support_plan_title="item.plan_goal"
-    :support_plan_content="item.plan_content"
-    :support_plan_file="item.origin_file_name"
-    :support_plan_reject_comment="item.plan_rej_cmt"
-    @updHistory="updHistory"
-    @result="result"
-    @edit="edit"
-    @approve="approve"
-    @supple="supple"
-    @reject="reject"
-    :plan_result="item.plan_tf"
-  />
+  <div class="container-fluid py-4">
+    <h5 class="mb-3">지원계획</h5>
+    <SupportPlanHeader
+      :target_name="infoData?.target_name ?? ''"
+      :member_name="infoData?.member_name ?? ''"
+      :manager_name="infoData?.manager_name ?? ''"
+      :priority="infoData?.priority ?? ''"
+      :write_date="infoData?.write_date ?? ''"
+:disability_type="infoData?.disability_type ?? ''"
+    />
+    <SupportPlanDetail
+      v-for="item in detail ?? []"
+      :key="item.plan_code"
+      :member_role="memberRole"
+      :support_plan_title="item.plan_goal"
+      :support_plan_content="item.plan_content"
+      :support_plan_file="item.origin_file_name"
+      :support_plan_reject_comment="item.plan_rej_cmt"
+      :plan_date="item.plan_date"
+      @history="updHistory"
+      @result="result"
+      @edit="edit"
+      @approve="approve"
+      @supple="supple"
+      @reject="reject"
+      :plan_result="item.plan_tf"
+    />
+  </div>
 </template>
-<style></style>
+<style scoped></style>

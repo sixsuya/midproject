@@ -8,12 +8,22 @@
 const qry = {
   // 지원신청의 지원자 정보 조회
   supportInfo: `
-  SELECT s.sup_code, s.mem_no, d.disability_name, s.sup_day, s.mgr_no, s.res_time, s.rank_res
+  SELECT s.sup_code, 
+         m1.m_nm AS member_name, 
+         d.mc_nm AS target_name, 
+         d.mc_type AS disability_type, 
+         s.sup_day AS write_date, 
+         m2.m_nm AS manager_name, 
+         s.rank_res AS priority
   FROM support s 
-  INNER JOIN disability_person d
-  ON s.mc_pn = d.disability_code
+  INNER JOIN dsbl_prs d
+  ON s.mc_pn = d.mc_pn
+  INNER JOIN member m1
+  ON s.mem_no = m1.m_no
+  INNER JOIN member m2
+  ON s.mgr_no = m2.m_no
   WHERE s.sup_code = ?`,
-  //
+
   // 지원신청(sup_code)에 대한 계획 조회
   supportPlanBySupCode: `
     SELECT 

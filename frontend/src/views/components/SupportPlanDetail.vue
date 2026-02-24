@@ -6,6 +6,7 @@ defineProps({
   support_plan_file: { type: String, default: "" },
   support_plan_reject_comment: { type: String, default: "" },
   plan_result: { type: String, default: "" },
+  plan_date: { type: String, default: "" },
 });
 const emit = defineEmits([
   "history",
@@ -17,93 +18,112 @@ const emit = defineEmits([
 ]);
 </script>
 <template>
-  <div>
-    <p>계획작성일시</p>
-    <div>
-      <span>제목</span>
-      <input type="text" :value="support_plan_title" readonly />
-      <span>내용</span>
-      <textarea :value="support_plan_content" readonly></textarea>
-      <span>첨부</span>
-      <input type="file" :value="support_plan_file" readonly />
-      <span v-if="plan_result === 'e0_99'">반려</span>
-      <textarea
-        v-if="plan_result === 'e0_99'"
-        :value="support_plan_reject_comment"
-        readonly
-      ></textarea>
+  <div class="support-plan-detail card shadow-sm border-radius-lg mb-4">
+    <div class="card-body">
+    <p class="text-sm text-body mb-3 opacity-8">
+      계획작성일시 | {{ plan_date || "—" }}
+    </p>
+    <div class="detail-fields mb-4">
+      <div class="mb-3">
+        <label class="form-label text-sm text-body mb-1">제목</label>
+        <input
+          type="text"
+          class="form-control form-control-sm"
+          :value="support_plan_title"
+          readonly
+          placeholder="지원 계획 제목"
+        />
+      </div>
+      <div class="mb-3">
+        <label class="form-label text-sm text-body mb-1">내용</label>
+        <textarea
+          class="form-control form-control-sm"
+          rows="4"
+          :value="support_plan_content"
+          readonly
+          placeholder="계획"
+        ></textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label text-sm text-body mb-1">첨부</label>
+        <div class="form-control form-control-sm bg-light border-0">
+          {{ support_plan_file || "첨부파일 없음" }}
+        </div>
+      </div>
+      <div v-if="plan_result === 'e0_99'" class="mb-3">
+        <label class="form-label text-sm text-body mb-1">반려</label>
+        <textarea
+          class="form-control form-control-sm"
+          rows="2"
+          :value="support_plan_reject_comment"
+          readonly
+          placeholder="반려사유"
+        ></textarea>
+      </div>
     </div>
-    <div>
-      <!-- 수정 이력은 기관관리자, 기관담당자, 지원자 모두 클릭 가능 -->
+    <div class="actions d-flex flex-wrap gap-2 mb-3">
       <button
-        v-if="
-          member_role === 'a0_40' ||
-          member_role === 'a0_30' ||
-          member_role === 'a0_20'
-        "
+        v-if="member_role === 'a0_40' || member_role === 'a0_30' || member_role === 'a0_20'"
         type="button"
+        class="btn btn-sm btn-success"
         @click="emit('history')"
       >
         수정이력
       </button>
-      <!-- 결과조회는 기관관리자, 기관담당자, 지원자 모두 클릭 가능 -->
       <button
-        v-if="
-          member_role === 'a0_40' ||
-          member_role === 'a0_30' ||
-          member_role === 'a0_20'
-        "
+        v-if="member_role === 'a0_40' || member_role === 'a0_30' || member_role === 'a0_20'"
         type="button"
+        class="btn btn-sm btn-primary"
         @click="emit('result')"
       >
         결과조회
       </button>
-      <!-- 수정은 기관관리자, 기관담당자만 가능하며, 동시에 계획판정의 값이 검토 및 보완일 때만 출력됨 -->
       <button
-        v-if="
-          (member_role === 'a0_40' || member_role === 'a0_30') &&
-          (plan_result === 'e0_00' || plan_result === 'e0_80')
-        "
+        v-if="(member_role === 'a0_40' || member_role === 'a0_30') && (plan_result === 'e0_00' || plan_result === 'e0_80')"
         type="button"
+        class="btn btn-sm btn-primary"
         @click="emit('edit')"
       >
         수정
       </button>
-      <!-- 승인 및 반려는 기관관리자만 가능하며, 동시에 계획판정의 값이 검토 및 보완일 때만 출력됨 -->
       <button
-        v-if="
-          member_role === 'a0_40' &&
-          (plan_result === 'e0_00' || plan_result === 'e0_80')
-        "
+        v-if="member_role === 'a0_40' && (plan_result === 'e0_00' || plan_result === 'e0_80')"
         type="button"
+        class="btn btn-sm btn-success"
         @click="emit('approve')"
       >
         승인
       </button>
       <button
-        v-if="
-          member_role === 'a0_40' &&
-          (plan_result === 'e0_00' || plan_result === 'e0_80')
-        "
+        v-if="member_role === 'a0_40' && (plan_result === 'e0_00' || plan_result === 'e0_80')"
         type="button"
-        @click="emit('supple')"
-      >
-        보완
-      </button>
-      <button
-        v-if="
-          member_role === 'a0_40' &&
-          (plan_result === 'e0_00' || plan_result === 'e0_80')
-        "
-        type="button"
+        class="btn btn-sm btn-danger"
         @click="emit('reject')"
       >
         반려
       </button>
+      <button
+        v-if="member_role === 'a0_40' && (plan_result === 'e0_00' || plan_result === 'e0_80')"
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        @click="emit('supple')"
+      >
+        보완
+      </button>
     </div>
-    <!-- 결과값은 모두 조회가 가능하나, 승인 및 반려 여부가 정해지지 않았다면 출력X -->
-    <span v-if="plan_result === 'e0_10' || plan_result === 'e0_99'">
-      {{ plan_result }}
-    </span>
+    <div v-if="plan_result === 'e0_10' || plan_result === 'e0_99'" class="text-sm">
+      <span class="text-body opacity-8">승인여부:</span>
+      <span :class="plan_result === 'e0_10' ? 'text-success fw-bold' : 'text-danger fw-bold'">
+        {{ plan_result === 'e0_10' ? '승인' : '반려' }}
+      </span>
+    </div>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.support-plan-detail .form-control:read-only,
+.support-plan-detail textarea[readonly] {
+  background-color: var(--bs-gray-100, #f8f9fa);
+}
+</style>
