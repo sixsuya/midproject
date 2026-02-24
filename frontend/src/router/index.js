@@ -62,79 +62,82 @@ const routes = [
     path: "/find-password",
     name: "FindPassword",
     component: FindPassword,
+  },
+  {
     path: "/proxy-test",
     name: "ProxyTest",
     component: ProxyTest,
   },
 ];
 
+// "/", "/dashboard-default"는 아래 레이아웃/기타에서 정의하므로 제외 후 병합
+const layoutRoutes = [
+  // 1) 지원자(기존) 영역: MainLayout 아래
+  {
+    path: "/",
+    component: MainLayout,
+    children: [
+      {
+        path: "",
+        name: "home",
+        component: () => import("@/views/MainContent.vue"),
+      },
+      {
+        path: "apply",
+        name: "apply",
+        component: () => import("@/views/apply/ApplyPage.vue"),
+      },
+      {
+        path: "mypage",
+        name: "mypage",
+        component: () => import("@/views/mypage/MyPage.vue"),
+      },
+      {
+        path: "applicant",
+        name: "applicant",
+        component: () => import("@/views/ApplicantDashboard.vue"),
+      },
+      {
+        path: "manager",
+        name: "manager-home",
+        component: () => import("@/views/manager/ManagerHome.vue"),
+      },
+    ],
+  },
+  // 2) 기관관리자 영역
+  {
+    path: "/organmanager",
+    component: OrganManager,
+    children: [
+      {
+        path: "",
+        name: "organmanager-home",
+        component: () => import("@/views/organmanager/ApplicantList.vue"),
+      },
+      {
+        path: "managers",
+        name: "organmanager-managers",
+        component: () => import("@/views/organmanager/ManagerList.vue"),
+      },
+    ],
+  },
+  // 기타: routes에서 "/", "/dashboard-default" 제외한 나머지 + 대시보드/로그인
+  ...routes.filter((r) => r.path !== "/" && r.path !== "/dashboard-default"),
+  {
+    path: "/dashboard-default",
+    name: "Dashboard",
+    component: () => import("../views/Dashboard.vue"),
+  },
+  {
+    path: "/login",
+    name: "login",
+    component: () => import("@/views/auth/LoginPage.vue"),
+  },
+];
+
 const router = createRouter({
-  history: createWebHistory(process.env.BASE_URL), // Vue CLI면 이게 더 안전
-  routes: [
-    // 1) 지원자(기존) 영역: MainLayout 아래
-    {
-      path: "/",
-      component: MainLayout,
-      children: [
-        {
-          path: "",
-          name: "home",
-          component: () => import("@/views/MainContent.vue"),
-        },
-        {
-          path: "apply",
-          name: "apply",
-          component: () => import("@/views/apply/ApplyPage.vue"),
-        },
-        {
-          path: "mypage",
-          name: "mypage",
-          component: () => import("@/views/mypage/MyPage.vue"),
-        },
-        {
-          path: "applicant", // ✅ 슬래시 제거
-          name: "applicant",
-          component: () => import("@/views/ApplicantDashboard.vue"),
-        },
-        {
-          path: "manager",
-          name: "manager-home",
-          component: () => import("@/views/manager/ManagerHome.vue"),
-        },
-      ],
-    },
-
-    // 2) 기관관리자 영역: MainLayout 밖에서 별도 트리로
-    {
-      path: "/organmanager",
-      component: OrganManager,
-      children: [
-        {
-          path: "",
-          name: "organmanager-home",
-          // OrganManager 메인 content가 따로 있으면 그걸 넣고,
-          component: () => import("@/views/organmanager/ApplicantList.vue"),
-        },
-        {
-          path: "managers",
-          name: "organmanager-managers",
-          component: () => import("@/views/organmanager/ManagerList.vue"),
-        },
-      ],
-    },
-
-    // 기타
-    {
-      path: "/dashboard-default",
-      name: "Dashboard",
-      component: () => import("../views/Dashboard.vue"),
-    },
-    {
-      path: "/login",
-      name: "login",
-      component: () => import("@/views/auth/LoginPage.vue"),
-    },
-  ],
+  history: createWebHistory(process.env.BASE_URL),
+  routes: layoutRoutes,
 });
 
 export default router;
