@@ -13,7 +13,10 @@ import FindPassword from "../views/FindPassword.vue";
 import ResetPassword from "../views/ResetPassword.vue";
 import ProxyTest from "../views/ProxyTest.vue";
 import ManagerControl from "@/views/ManagerControl.vue";
-
+import test1 from "./test1";
+import test2 from "./test2";
+import test3 from "./test3";
+import test4 from "./test4";
 const routesList = [
   // 1) 지원자(기존) 영역: MainLayout 아래
   {
@@ -47,6 +50,10 @@ const routesList = [
       },
     ],
   },
+  ...test1,
+  ...test2,
+  ...test3,
+  ...test4,
   // 2) 기관관리자 영역
   {
     path: "/organmanager",
