@@ -1,6 +1,5 @@
 import { createRouter, createWebHistory } from "vue-router";
 import MainLayout from "@/layouts/MainLayout.vue";
-import OrganManager from "@/views/OrganManager.vue";
 import Dashboard from "../views/Dashboard.vue";
 import Tables from "../views/Tables.vue";
 import Profile from "../views/Profile.vue";
@@ -52,23 +51,7 @@ const routesList = [
   ...psw,
   ...six,
   ...yang,
-  // 2) 기관관리자 영역
-  {
-    path: "/organmanager",
-    component: OrganManager,
-    children: [
-      {
-        path: "",
-        name: "organmanager-home",
-        component: () => import("@/views/organmanager/ApplicantList.vue"),
-      },
-      {
-        path: "managers",
-        name: "organmanager-managers",
-        component: () => import("@/views/organmanager/ManagerList.vue"),
-      },
-    ],
-  },
+
   // 기타 페이지
   {
     path: "/dashboard-default",
