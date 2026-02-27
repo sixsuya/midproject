@@ -1,8 +1,13 @@
 <script setup>
+/**
+ * 지원계획 상단 헤더.
+ * 지원대상, 장애유형, 작성일자, 지원자, 담당자, 우선순위 등 지원 기본 정보를 테이블로 표시한다.
+ */
 // ========== import ==========
 // (없음)
 
-// ========== 변수 ==========
+// ========== 변수 (props) ==========
+// 부모에서 전달: 지원대상, 지원자, 담당자, 우선순위, 작성일자, 장애유형
 defineProps({
   target_name: { type: String, default: "" },
   member_name: { type: String, default: "" },
@@ -17,6 +22,7 @@ defineProps({
     <div class="card-body p-0">
       <table class="table table-bordered mb-0">
         <tbody>
+          <!-- 1행: 지원대상 / 장애유형 / 작성일자 -->
           <tr>
             <td class="bg-light fw-medium" style="width: 10%">지원대상</td>
             <td style="width: 23%">{{ target_name }}</td>
@@ -25,6 +31,7 @@ defineProps({
             <td class="bg-light fw-medium" style="width: 10%">작성일자</td>
             <td style="width: 24%">{{ write_date }}</td>
           </tr>
+          <!-- 2행: 지원자(사회복지사) / 담당자(관리자) / 우선순위 -->
           <tr>
             <td class="bg-light fw-medium">지원자</td>
             <td>{{ member_name }}</td>

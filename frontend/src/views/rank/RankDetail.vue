@@ -1,6 +1,11 @@
 <script setup>
+/**
+ * 우선순위 한 건 상세 카드.
+ * 계획/중점/긴급 pill 선택, 신청 사유 입력, 승인요청/승인/보완/반려 버튼을 제공하며, 상태(e0_00/e0_80 등)에 따라 읽기 전용·편집 가능을 구분한다.
+ */
 import { ref, watch } from "vue";
 
+// ========== 변수 ==========
 const props = defineProps({
   rank_code: { type: String, default: "" }, // 우선순위 코드 (d0_20/d0_30/d0_40)
   rank_cmt: { type: String, default: "" },
@@ -20,7 +25,7 @@ const emit = defineEmits([
   "supple",
 ]);
 
-// 빈 문자열이면 3개 모두 표시, 선택 시 해당 pill만 중앙 표시
+// 빈 문자열이면 3개 pill 모두 표시, 선택 시 해당 pill만 중앙 표시
 const selectedCode = ref(props.rank_code || "");
 watch(
   () => props.rank_code,
@@ -29,7 +34,7 @@ watch(
   },
 );
 
-const rankComment = ref(props.rank_cmt || "");
+const rankComment = ref(props.rank_cmt || ""); // 신청 사유(또는 보완 사유) 입력값
 watch(
   () => props.rank_cmt,
   (v) => {
@@ -45,10 +50,9 @@ watch(
   { immediate: true },
 );
 
-// 읽기 전용 apply_for: e0_00(검토대기) 또는 승인 후 priority 있음. e0_80(보완)은 편집 가능
+// 읽기 전용: e0_00(검토대기) 또는 승인 후 priority 있음. e0_80(보완)은 편집 가능
 const showApplyForReadonly = () =>
-  (!!props.priority && props.priority !== "-") || props.s_rank_res === "e0_00";
-// e0_80이면 편집 가능하게 rankComment, 아니면 기존 로직
+  (props.priority && props.priority !== "-") || props.s_rank_res === "e0_00";
 const isSupplementEditable = () => props.s_rank_res === "e0_80";
 const textareaValue = () =>
   isSupplementEditable()
@@ -60,15 +64,19 @@ const textareaReadonly = () =>
   isSupplementEditable() ? false : showApplyForReadonly();
 
 const pills = [
+  // 계획/중점/긴급 pill 정의
   { code: "d0_20", label: "계획", pillClass: "rank-pill-plan" },
   { code: "d0_30", label: "중점", pillClass: "rank-pill-focus" },
   { code: "d0_40", label: "긴급", pillClass: "rank-pill-urgent" },
 ];
 
+// ========== 함수 ==========
+/** 해당 pill을 표시할지 여부 (전체 선택 시 모두, 선택 후에는 해당만) */
 function showPill(p) {
   return selectedCode.value === "" || selectedCode.value === p.code;
 }
 
+/** pill 클릭 시 선택/해제 토글 후 update:rank_code 발생 */
 function selectPill(code) {
   if (selectedCode.value === "") {
     selectedCode.value = code;
@@ -79,17 +87,18 @@ function selectPill(code) {
   }
 }
 
+/** 신청 사유 변경 시 부모에 전달 */
 function onCommentInput() {
   emit("update:rank_cmt", rankComment.value);
 }
 
-// 템플릿에서는 ref가 자동 언래핑되어 rankComment가 문자열이므로, ref 갱신은 스크립트 함수에서만 처리
+/** textarea 입력값 갱신 후 부모에 전달 */
 function updateComment(val) {
   rankComment.value = val;
   onCommentInput();
 }
 
-// 취소: textarea·우선순위 선택 초기화
+/** 취소: 우선순위·사유 초기화 후 cancel 이벤트 발생 */
 function onCancel() {
   selectedCode.value = "";
   rankComment.value = "";

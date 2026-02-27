@@ -156,10 +156,9 @@ onBeforeUnmount(() => {
   background: #fff;
   border: 1px solid #dee2e6;
   border-radius: 0.375rem;
-  width: min(90vw, 600px);
-  height: min(80vh, 320px);
-  max-width: 600px;
-  max-height: 320px;
+  width: min(90vw, 440px);
+  min-height: 260px;
+  max-height: min(80vh, 360px);
   box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;

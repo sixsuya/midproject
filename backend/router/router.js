@@ -10,6 +10,7 @@ const psw_survey = require("./psw_survey_router");
 const six_apply = require("./six_apply_router");
 const admin_organ = require("./admin_organ_router");
 const authRouter = require("./yang_auth_router");
+const uploadRouter = require("./upload_router");
 const psw_verifi = require("./psw_verifi_router");
 
 // 라우터 주소가 최대한 겹치지 않도록 유의할 필요가 있음
@@ -26,6 +27,7 @@ router.use("/", psw_survey);
 router.use("/apply", six_apply);
 router.use("/admin", admin_organ);
 router.use("/auth", authRouter);
+router.use("/upload", uploadRouter);
 router.use("/verifi", psw_verifi);
 
 module.exports = router;

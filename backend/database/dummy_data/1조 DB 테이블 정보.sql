@@ -250,7 +250,7 @@ CREATE TABLE `file` (
   `file_category` VARCHAR(30) NOT NULL,
   `category_name` VARCHAR(30) NOT NULL,
   `origin_file_name` VARCHAR(100) NOT NULL,
-  `server_file_name` VARCHAR(120) NOT NULL,
+  `server_file_name` BINARY(16) NOT NULL DEFAULT UUID_TO_BIN(UUID()),
   `file_path` VARCHAR(200) NOT NULL,
   `file_ext` VARCHAR(10) NOT NULL,
   `upload_mem` VARCHAR(20) NOT NULL,

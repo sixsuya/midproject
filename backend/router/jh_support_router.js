@@ -34,7 +34,7 @@ router.put("/plan/:planCode", async (req, res) => {
   }
 });
 
-// 계획 추가 (승인요청, dsbl_no 없으면 supportInfo에서 조회)
+// 계획 추가 (승인요청). plan_code는 트리거 자동 부여
 router.post("/:supportCode/plan", async (req, res) => {
   const supportCode = req.params.supportCode;
   const { dsbl_no, plan_goal, plan_content, start_date, end_date } =
@@ -45,33 +45,17 @@ router.post("/:supportCode/plan", async (req, res) => {
       const info = await supportService.getSupportInfoBySupCode(supportCode);
       dsblNo = info?.dsbl_no ?? null;
     }
-    await supportService.insertPlan(supportCode, {
+    const planCode = await supportService.insertPlan(supportCode, {
       dsbl_no: dsblNo,
       plan_goal,
       plan_content,
       start_time: start_date ?? null,
       end_time: end_date ?? null,
     });
-    res.json({ retCode: "Success", retMsg: "등록 완료" });
+    res.json({ retCode: "Success", retMsg: "등록 완료", plan_code: planCode });
   } catch (err) {
     console.error(err);
     res.json({ retCode: "Error", retMsg: "등록 실패" });
-  }
-});
-
-// 계획 임시저장
-router.post("/:supportCode/plan/temp", async (req, res) => {
-  const supportCode = req.params.supportCode;
-  const { save_title, save_content } = req.body || {};
-  try {
-    await supportService.insertPlanTemp(supportCode, {
-      save_title,
-      save_content,
-    });
-    res.json({ retCode: "Success", retMsg: "임시저장 완료" });
-  } catch (err) {
-    console.error(err);
-    res.json({ retCode: "Error", retMsg: "임시저장 실패" });
   }
 });
 
@@ -115,8 +99,16 @@ router.post("/:supportCode/result", async (req, res) => {
       res.json({ retCode: "Fail", retMsg: "plan_code 필요" });
       return;
     }
-    await supportService.insertResult(plan_code, result_title, result_content);
-    res.json({ retCode: "Success", retMsg: "등록 완료" });
+    const resultCode = await supportService.insertResult(
+      plan_code,
+      result_title,
+      result_content,
+    );
+    res.json({
+      retCode: "Success",
+      retMsg: "등록 완료",
+      result_code: resultCode,
+    });
   } catch (err) {
     console.error(err);
     res.json({ retCode: "Error", retMsg: "등록 실패" });

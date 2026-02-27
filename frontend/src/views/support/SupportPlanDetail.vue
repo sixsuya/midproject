@@ -1,6 +1,10 @@
 <script setup>
+/**
+ * 지원계획 한 건 상세/편집 카드.
+ * 계획 제목·내용 표시 및 수정, 승인요청/승인/보완/반려/취소 버튼, 이력·결과 화면 이동을 담당한다.
+ */
 // ========== import ==========
-import { ref, watch } from "vue";
+import { ref, watch, onBeforeMount } from "vue";
 
 // ========== 변수 ==========
 const props = defineProps({
@@ -8,6 +12,7 @@ const props = defineProps({
   support_plan_title: { type: String, default: "" },
   support_plan_content: { type: String, default: "" },
   support_plan_file: { type: String, default: "" },
+  file_code: { type: String, default: "" },
   support_plan_reject_comment: { type: String, default: "" },
   support_plan_comment: { type: String, default: "" },
   support_plan_updday: { type: String, default: "" },
@@ -29,45 +34,179 @@ const emit = defineEmits([
   "cancel-done",
   "add-plan",
   "plan-result",
+  "temp-save",
+  "alert",
 ]);
 
-const isEditing = ref(false);
-const titleLocal = ref(props.support_plan_title || "");
-const contentLocal = ref(props.support_plan_content || "");
+const isEditing = ref(false); // 수정 모드 여부
+const titleLocal = ref(props.support_plan_title || ""); // 수정 중 제목
+const contentLocal = ref(props.support_plan_content || ""); // 수정 중 내용
+const editFiles = ref([]);
+const editFileInput = ref(null);
+const deleteExistingFile = ref(false);
+const filesForPlan = ref([]);
+const fileNames = ref("");
+const deletedFileCodes = ref([]);
 
-const isViewMode = () => !isEditing.value;
-const isInputMode = () => isEditing.value && !(contentLocal.value || "").trim();
-const isEditMode = () => isEditing.value && (contentLocal.value || "").trim();
+const isViewMode = () => !isEditing.value; // 조회 모드: 수정 중이 아님
+const isInputMode = () => isEditing.value && !(contentLocal.value || "").trim(); // 수정 모드 + 내용 없음 → 승인요청 버튼 표시
+const isEditMode = () => isEditing.value && (contentLocal.value || "").trim(); // 수정 모드 + 내용 있음 → 수정완료 버튼 표시
 
 // ========== 함수 ==========
+/** 수정 모드로 전환하고 로컬 값 초기화 후 edit 이벤트 발생 */
 function startEdit() {
   isEditing.value = true;
   titleLocal.value = props.support_plan_title || "";
   contentLocal.value = props.support_plan_content || "";
+  editFiles.value = [];
+  deleteExistingFile.value = false;
+  deletedFileCodes.value = [];
   emit("edit");
 }
+/** 수정 취소: 조회 모드로 복귀 후 cancel 이벤트 발생 */
 function onCancel() {
   isEditing.value = false;
   titleLocal.value = props.support_plan_title || "";
   contentLocal.value = props.support_plan_content || "";
+  editFiles.value = [];
+  deleteExistingFile.value = false;
+  deletedFileCodes.value = [];
   emit("cancel");
 }
+/** 수정 완료 시 부모에 planCode·제목·내용 전달 후 조회 모드로 전환 */
 function onEditComplete() {
   emit("edit-complete", {
     planCode: props.plan_code,
     title: titleLocal.value?.trim() ?? "",
     content: contentLocal.value?.trim() ?? "",
+    deleteFileCodes: deletedFileCodes.value.slice(),
+    newFiles: editFiles.value,
   });
   isEditing.value = false;
+  editFiles.value = [];
+  deleteExistingFile.value = false;
+  deletedFileCodes.value = [];
 }
+/** 제목 입력값을 갱신한다. */
 function updateTitle(val) {
   titleLocal.value = val;
 }
+/** 내용 입력값을 갱신한다. */
 function updateContent(val) {
   contentLocal.value = val;
 }
 
-// ========== 라이프사이클 훅 / watch ==========
+/** 수정 모드에서 파일 선택 input 값이 바뀌면 editFiles 목록 갱신 (10MB 초과 시 AlertModal로 에러 표시) */
+function onEditFileChange(e) {
+  const files = Array.from(e.target.files || []);
+  const oversized = files.filter((f) => f.size > 10 * 1024 * 1024);
+  if (oversized.length > 0) {
+    emit("alert", {
+      type: "error",
+      message: `파일 용량이 10MB를 초과합니다:\n${oversized.map((f) => f.name).join("\n")}`,
+    });
+    if (editFileInput.value) editFileInput.value.value = "";
+    return;
+  }
+  editFiles.value = files;
+}
+/** 숨겨진 파일 input을 프로그래매틱으로 클릭해 파일 선택 다이얼로그 오픈 */
+function openEditFileDialog() {
+  if (editFileInput.value) editFileInput.value.click();
+}
+
+/**
+ * 파일 표시명 계산: origin_file_name + file_ext 조합.
+ * origin_file_name이 이미 확장자를 포함하는 경우 중복 방지.
+ * (예: origin="보고서", ext="pdf" → "보고서.pdf")
+ */
+function formatFileName(file) {
+  const name =
+    file?.origin_file_name || file?.server_file_name || "";
+  const ext = file?.file_ext || "";
+  if (!name) return "";
+  if (ext && !name.toLowerCase().endsWith(`.${ext.toLowerCase()}`)) {
+    return `${name}.${ext}`;
+  }
+  return name;
+}
+
+/** filesForPlan 목록 전체를 formatFileName 으로 변환해 fileNames 문자열 재계산 */
+function recomputeFileNames() {
+  fileNames.value = filesForPlan.value
+    .map((f) => formatFileName(f))
+    .filter(Boolean)
+    .join(", ");
+}
+
+/** plan_code 기준으로 해당 계획의 첨부파일 목록을 서버에서 조회하고 filesForPlan 갱신 */
+async function loadPlanFiles() {
+  if (!props.plan_code) {
+    filesForPlan.value = [];
+    fileNames.value = "";
+    return;
+  }
+  try {
+    const res = await fetch(
+      `/api/upload/files/${encodeURIComponent(props.plan_code)}`,
+    );
+    const data = await res.json().catch(() => ({}));
+    const list = Array.isArray(data?.data) ? data.data : [];
+    filesForPlan.value = list;
+    recomputeFileNames();
+  } catch (e) {
+    console.error("계획 첨부파일 조회 중 에러", e);
+    filesForPlan.value = [];
+    fileNames.value = "";
+  }
+}
+
+/**
+ * 수정 모드에서 기존 첨부파일 삭제 표시.
+ * deletedFileCodes 에 추가해두고, 수정완료 시 부모가 일괄 DELETE API 호출한다.
+ */
+function removeFileForEdit(fileCode) {
+  if (!fileCode) return;
+  if (!deletedFileCodes.value.includes(fileCode)) {
+    deletedFileCodes.value.push(fileCode);
+  }
+  filesForPlan.value = filesForPlan.value.filter(
+    (f) => f.file_code !== fileCode,
+  );
+  recomputeFileNames();
+}
+
+/** 단일 파일 다운로드: 새 탭에서 /api/upload/download/:fileCode 호출 */
+function downloadFile(fileCode) {
+  if (!fileCode) return;
+  const url = `/api/upload/download/${encodeURIComponent(fileCode)}`;
+  const a = document.createElement("a");
+  a.href = url;
+  a.target = "_blank";
+  a.click();
+}
+
+/** 전체 파일을 ZIP으로 압축 다운로드 */
+function downloadAllFiles() {
+  if (!filesForPlan.value.length) return;
+  const url = `/api/upload/download-zip/${encodeURIComponent(props.plan_code)}`;
+  const a = document.createElement("a");
+  a.href = url;
+  a.click();
+}
+
+/** 파일명(확장자 제외) — 버튼 말줄임 표시용 */
+function fileBaseName(file) {
+  return file?.origin_file_name || "";
+}
+
+/** 파일 확장자(.포함) — 버튼에서 항상 표기 */
+function fileExt(file) {
+  return file?.file_ext ? `.${file.file_ext}` : "";
+}
+
+// ========== 라이프사이클 훅 / expose / watch ==========
+// 부모에서 props(제목·내용)가 갱신되면 수정 중이 아닐 때 로컬값 동기화
 watch(
   () => [props.support_plan_title, props.support_plan_content],
   () => {
@@ -77,6 +216,16 @@ watch(
     }
   },
 );
+// plan_code가 바뀌면(다른 계획으로 교체) 첨부파일 목록 재조회
+watch(
+  () => props.plan_code,
+  () => {
+    if (!isEditing.value) loadPlanFiles();
+  },
+);
+// 마운트 시 최초 첨부파일 조회
+onBeforeMount(loadPlanFiles);
+// 부모(SupportPlan)가 cancelRequest 값을 이 카드의 plan_code 로 설정하면 수정 취소 처리
 watch(
   () => props.cancelRequest,
   (v) => {
@@ -86,6 +235,9 @@ watch(
     }
   },
 );
+
+// 부모에서 ref를 통해 첨부파일 목록 재조회가 필요할 때 사용
+defineExpose({ reloadFiles: loadPlanFiles });
 </script>
 <template>
   <div class="support-plan-detail card shadow-sm border-radius-lg mb-4">
@@ -121,11 +273,80 @@ watch(
             @input="(e) => isEditing && updateContent(e.target.value)"
           ></textarea>
         </div>
-        <div class="mb-3">
-          <label class="form-label text-sm text-body mb-1">첨부</label>
-          <div class="form-control form-control-sm bg-light border-0">
-            {{ support_plan_file || "첨부파일 없음" }}
+        <!-- 첨부: 조회 모드에서는 파일이 있을 때만, 수정 모드에서는 항상 노출 -->
+        <div v-if="isEditing || filesForPlan.length" class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <label class="form-label text-sm text-body mb-1 mb-0">첨부</label>
+            <button
+              v-if="filesForPlan.length && !isEditing"
+              type="button"
+              class="btn btn-xs btn-outline-primary"
+              @click="downloadAllFiles"
+            >
+              첨부파일 전체 다운로드
+            </button>
           </div>
+          <template v-if="!isEditing">
+            <div class="d-flex flex-wrap gap-1">
+              <button
+                v-for="file in filesForPlan"
+                :key="file.file_code"
+                type="button"
+                class="btn btn-xs btn-outline-primary file-dl-btn"
+                :title="formatFileName(file)"
+                @click="downloadFile(file.file_code)"
+              >
+                <span class="file-dl-name">{{ fileBaseName(file) }}</span
+                ><span class="file-dl-ext">{{ fileExt(file) }}</span>
+              </button>
+            </div>
+          </template>
+          <template v-else>
+            <input
+              ref="editFileInput"
+              type="file"
+              class="d-none"
+              multiple
+              @change="onEditFileChange"
+            />
+            <button
+              type="button"
+              class="form-control form-control-sm text-start bg-white mb-1"
+              @click="openEditFileDialog"
+            >
+              <span v-if="editFiles.length">
+                {{ editFiles.map((f) => f.name).join(", ") }}
+              </span>
+              <span v-else class="text-muted">파일을 선택하세요</span>
+            </button>
+            <div
+              v-if="filesForPlan.length"
+              class="mt-1 d-flex flex-wrap gap-1"
+            >
+              <div
+                v-for="file in filesForPlan"
+                :key="file.file_code"
+                class="btn-group btn-group-xs"
+              >
+                <button
+                  type="button"
+                  class="btn btn-xs btn-outline-primary file-dl-btn"
+                  :title="formatFileName(file)"
+                  @click="downloadFile(file.file_code)"
+                >
+                  <span class="file-dl-name">{{ fileBaseName(file) }}</span
+                  ><span class="file-dl-ext">{{ fileExt(file) }}</span>
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-xs btn-outline-danger"
+                  @click="removeFileForEdit(file.file_code)"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          </template>
         </div>
         <div
           v-if="plan_result === 'e0_99' || plan_result === 'e0_80'"
@@ -232,10 +453,10 @@ watch(
               취소
             </button>
           </template>
-          <!-- 수정상태: 편집 중 + 내용 있음 → 수정완료, 취소 -->
+          <!-- 수정상태: 편집 중 + 내용 있음 → 수정완료, 임시저장, 취소 -->
           <template v-else-if="isEditMode()">
             <button
-              v-if="result_result === 'e0_00'"
+              v-if="plan_result === 'e0_00'"
               type="button"
               class="btn btn-sm btn-success"
               @click="onEditComplete"
@@ -243,12 +464,25 @@ watch(
               수정완료
             </button>
             <button
-              v-if="result_result === 'e0_80'"
+              v-if="plan_result === 'e0_80'"
               type="button"
               class="btn btn-sm btn-success"
               @click="onEditComplete"
             >
               승인재요청
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-secondary"
+              @click="
+                emit('temp-save', {
+                  planCode: plan_code,
+                  title: titleLocal.value ?? '',
+                  content: contentLocal.value ?? '',
+                })
+              "
+            >
+              임시저장
             </button>
             <button
               type="button"
@@ -283,6 +517,27 @@ watch(
 .support-plan-detail .form-control:read-only,
 .support-plan-detail textarea[readonly] {
   background-color: var(--bs-gray-100, #f8f9fa);
+}
+
+/* 파일 다운로드 버튼: 최대 100px, 이름은 말줄임·확장자는 항상 표기 */
+.file-dl-btn {
+  max-width: 100px;
+  overflow: hidden;
+  display: inline-flex !important;
+  align-items: center;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+}
+.file-dl-btn .file-dl-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.file-dl-btn .file-dl-ext {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .support-plan-textarea {
   height: 6rem;

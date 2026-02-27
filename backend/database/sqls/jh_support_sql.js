@@ -15,6 +15,7 @@ const qry = {
       s.sup_day     write_date,
       m_mem.m_nm    member_name,
       m_mgr.m_nm    manager_name,
+      m_mgr.m_no    mgr_no,
       sc.s_name     priority
     FROM support s
     JOIN dsbl_prs d     ON s.mc_pn  = d.mc_pn
@@ -26,7 +27,7 @@ const qry = {
     WHERE s.sup_code = ?
     AND r.s_rank_res = 'e0_10'`,
 
-  // 지원신청(sup_code)에 대한 계획 조회
+  // 지원신청(sup_code)에 대한 계획 조회 (첨부파일은 별도 조회)
   supportPlanBySupCode: `
     SELECT 
       p.plan_code plan_code, 
@@ -36,35 +37,12 @@ const qry = {
       p.plan_date plan_date,
       p.plan_tf plan_tf,
       p.plan_cmt plan_cmt,
-      p.plan_updday plan_updday,
-      f.file_code file_code, 
-      f.origin_file_name origin_file_name,
-      f.server_file_name server_file_name, 
-      f.file_path file_path,
-      f.file_ext file_ext
+      p.plan_updday plan_updday
     FROM support_plan p 
-    LEFT JOIN file f ON p.plan_code = f.file_category
     WHERE p.sup_code = ?
     ORDER BY p.plan_date ASC
   `,
-  // 지원계획 임시저장(등록용). tar_category = 당일 support_plan PK 규칙(PLAN+yyyymmdd+일련번호), 당일 글이 없으면 1번
-  supportPlanTempInsert: `
-    INSERT INTO temp_storage (tar_category, category_name, m_no, save_title, save_content)
-    SELECT
-      CONCAT('PLAN', DATE_FORMAT(NOW(), '%Y%m%d'), LPAD(IFNULL(t.seq, 0) + 1, 4, '0')),
-      'j0_20',
-      s.mgr_no,
-      ?,
-      ?
-    FROM support s
-    LEFT JOIN (
-      SELECT MAX(CAST(SUBSTRING(plan_code, 13) AS UNSIGNED)) AS seq
-      FROM support_plan
-      WHERE plan_code LIKE CONCAT('PLAN', DATE_FORMAT(NOW(), '%Y%m%d'), '%')
-    ) t ON 1=1
-    WHERE s.sup_code = ?
-  `,
-  // 계획 추가 (dsbl_no는 Header supportInfo에서 조회한 값 사용)
+  // 계획 추가. plan_code는 트리거 자동 부여
   supportPlanInsert: `
     INSERT INTO support_plan (sup_code, dsbl_no, plan_goal, start_time, end_time, plan_content, plan_date, plan_tf, plan_cmt)
     VALUES (?, ?, ?, ?, ?, ?, NOW(), 'e0_00', ?)
@@ -77,43 +55,53 @@ const qry = {
         plan_tf = IF(plan_tf = 'e0_80', 'e0_00', plan_tf)
     WHERE plan_code = ?
   `,
-  // 계획 승인/보완/반려 (plan_tf: e0_10 승인, e0_80 보완, e0_99 반려, plan_cmt에 사유, plan_updday 강제 유지)
+  // 계획 승인/보완/반려 (plan_tf: e0_10 승인, e0_80 보완, e0_99 반려, plan_cmt에 사유, plan_updday 강제 유지. 반려(e0_99) 시 종료일 end_time을 NOW()로 갱신)
   supportPlanDecide: `
-    UPDATE support_plan SET plan_tf = ?, plan_cmt = ?, plan_updday = plan_updday WHERE plan_code = ?
+    UPDATE support_plan
+    SET plan_tf = ?, plan_cmt = ?, plan_updday = plan_updday,
+        end_time = IF(? = 'e0_99', NOW(), end_time)
+    WHERE plan_code = ?
   `,
 
   // 지원 계획 결과 조회 (결과조회 클릭 시 해당 계획 1건, plan_code만 사용)
+  // - plan_date: 계획 작성일자
+  // - start_time / end_time: 지원계획 기간
+  // - origin_file_name 등: 계획에 첨부된 파일 정보 (있을 경우)
   supportResultPlanInfo: `
-    SELECT p.plan_code plan_code,
-          p.plan_date plan_date,
-          manager.m_nm manager_name,
-          org.organ_name organ_name,
-          p.plan_goal plan_goal
+    SELECT
+      p.plan_code        plan_code,
+      p.plan_date        plan_date,
+      p.start_time       start_time,
+      p.end_time         end_time,
+      p.plan_content     plan_content,
+      manager.m_nm       manager_name,
+      org.organ_name     organ_name,
+      p.plan_goal        plan_goal,
+      f.file_code        file_code,
+      f.origin_file_name origin_file_name,
+      f.server_file_name server_file_name,
+      f.file_path        file_path,
+      f.file_ext         file_ext
     FROM \`support\` s
     JOIN \`member\` manager ON s.mgr_no = manager.m_no
     JOIN support_plan p ON p.sup_code = s.sup_code
     JOIN organ org ON org.organ_no = manager.m_org
+    LEFT JOIN file f ON p.plan_code = f.file_category
     WHERE p.plan_code = ?
       AND p.plan_tf = 'e0_10'
     ORDER BY p.plan_date ASC
   `,
-  // 결과 조회: plan_code로 해당 결과 조회
+  // 결과 조회: plan_code로 해당 결과 조회 (첨부파일은 별도 조회)
   supportResultByPlanCode: `
-  SELECT r.result_code result_code,
-         r.result_title result_title,
+  SELECT r.result_code    result_code,
+         r.result_title   result_title,
          r.result_content result_content,
-         r.result_date result_date,
-         r.result_tf result_tf,
-         r.result_cmt result_cmt,
-         r.result_updday result_updday,
-         f.file_code file_code, 
-         f.origin_file_name origin_file_name,
-         f.server_file_name server_file_name, 
-         f.file_path file_path,
-         f.file_ext file_ext
+         r.result_date    result_date,
+         r.result_tf      result_tf,
+         r.result_cmt     result_cmt,
+         r.result_updday  result_updday
   FROM support_result r
   JOIN support_plan p USING (plan_code)
-  LEFT JOIN file f ON r.result_code = f.file_category
   WHERE r.plan_code = ?
   ORDER BY r.result_date ASC
   `,

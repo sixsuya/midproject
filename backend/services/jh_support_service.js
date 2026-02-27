@@ -26,7 +26,7 @@ const svc = {
     return rows?.[0] ?? null;
   },
 
-  // 계획 추가 (승인요청, dsbl_no 없으면 supportInfo에서 조회)
+  // 계획 추가 (승인요청). plan_code는 트리거 자동 부여
   insertPlan: async (
     supportCode,
     { dsbl_no, plan_goal, plan_content, start_time, end_time },
@@ -43,7 +43,15 @@ const svc = {
       console.error(err);
       throw err;
     });
-    return null;
+    // 방금 추가된 계획의 plan_code 조회 (sup_code 기준 최신 계획)
+    const plans = await query("supportPlanBySupCode", [supportCode]).catch(
+      (err) => {
+        console.error(err);
+        throw err;
+      },
+    );
+    const last = Array.isArray(plans) ? plans[plans.length - 1] : null;
+    return last?.plan_code ?? null;
   },
   // 계획 수정 (제목, 내용만)
   updatePlan: async (planCode, { plan_goal, plan_content }) => {
@@ -57,23 +65,12 @@ const svc = {
     });
     return null;
   },
-  // 계획 임시저장 (tar_category는 SQL에서 당일 plan_code 규칙으로 생성)
-  insertPlanTemp: async (supportCode, { save_title, save_content }) => {
-    await query("supportPlanTempInsert", [
-      save_title ?? "",
-      save_content ?? "",
-      supportCode,
-    ]).catch((err) => {
-      console.error(err);
-      throw err;
-    });
-    return null;
-  },
-  // 계획 승인/보완/반려
+  // 계획 승인/보완/반려 (반려 시 지원계획 종료일 end_time을 NOW()로 갱신)
   decidePlan: async (planCode, decision, plan_cmt) => {
     await query("supportPlanDecide", [
       decision,
       plan_cmt ?? null,
+      decision,
       planCode,
     ]).catch((err) => {
       console.error(err);
@@ -112,7 +109,15 @@ const svc = {
       console.error(err);
       throw err;
     });
-    return null;
+    // 방금 추가된 결과의 result_code 조회 (plan_code 기준 최신 결과)
+    const rows = await query("supportResultByPlanCode", [planCode]).catch(
+      (err) => {
+        console.error(err);
+        throw err;
+      },
+    );
+    const last = Array.isArray(rows) ? rows[rows.length - 1] : null;
+    return last?.result_code ?? null;
   },
   // 결과 수정 (제목, 내용만)
   updateResult: async (resultCode, { result_title, result_content }) => {

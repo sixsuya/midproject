@@ -1,4 +1,8 @@
 <script setup>
+/**
+ * 우선순위(등급) 페이지.
+ * 지원 건(supCode)에 대한 우선순위 조회, 승인요청 확인, 반려/보완 사유 모달 연동을 처리한다.
+ */
 import { ref } from "vue";
 import RankHeader from "./rank/RankHeader.vue";
 import RankDetail from "./rank/RankDetail.vue";
@@ -9,21 +13,26 @@ import { useRoute } from "vue-router";
 import { useRankStore } from "../store/rank.js";
 import { storeToRefs } from "pinia";
 
+// ========== 변수 ==========
 const route = useRoute();
-const supCode = route.params.supCode;
+const supCode = route.params.supCode; // URL의 지원코드
 const rankStore = useRankStore();
-const { rankInfo } = storeToRefs(rankStore);
+const { rankInfo } = storeToRefs(rankStore); // API 조회 결과(헤더/디테일에 전달)
 const { getRankInfo } = rankStore;
-const reasonModal = ref({ show: false, type: "reject" });
+const reasonModal = ref({ show: false, type: "reject" }); // 반려/보완 사유 모달 상태
+const approvalConfirm = ref({ show: false, payload: null }); // 승인요청 확인 모달 상태
 
+// ========== 함수 ==========
+/** 반려/보완 사유 모달을 연다. */
 function openReasonModal(type) {
   reasonModal.value = { show: true, type };
 }
+/** 반려/보완 사유 모달을 닫는다. */
 function closeReasonModal() {
   reasonModal.value = { ...reasonModal.value, show: false };
 }
 
-const approvalConfirm = ref({ show: false, payload: null });
+/** 승인요청 확인 모달을 연다. (우선순위 미선택 시 알림) */
 function openApprovalConfirm(payload) {
   if (!payload?.s_rank_code) {
     alert("우선순위를 선택한 뒤 승인요청해 주세요.");
@@ -31,10 +40,12 @@ function openApprovalConfirm(payload) {
   }
   approvalConfirm.value = { show: true, payload };
 }
+/** 승인요청 확인 모달을 닫는다. */
 function closeApprovalConfirm() {
   approvalConfirm.value = { show: false, payload: null };
 }
 
+/** RankDetail에서 승인요청 시 확인 모달을 연다. */
 function onApprovalRequest(payload) {
   openApprovalConfirm(payload);
 }
@@ -42,6 +53,7 @@ function onCancel() {
   console.log("취소");
 }
 
+/** 승인요청 확인 모달에서 확인 시 requestApproval 호출 후 목록 갱신 */
 async function onApprovalConfirmYes() {
   const payload = approvalConfirm.value.payload;
   if (!payload) return;
@@ -67,6 +79,7 @@ onBeforeMount(() => {
   if (supCode) getRankInfo(supCode);
 });
 
+/** 우선순위를 승인(e0_10) 처리한다. */
 async function onApprove() {
   const reqCode = rankInfo?.value?.req_code;
   if (!reqCode) return;
@@ -75,12 +88,15 @@ async function onApprove() {
     await getRankInfo(supCode);
   }
 }
+/** 보완 사유 모달을 연다. */
 function onSupple() {
   openReasonModal("supple");
 }
+/** 반려 사유 모달을 연다. */
 async function onReject() {
   openReasonModal("reject");
 }
+/** 반려/보완 사유 확인 시 decideRank 또는 suppleRank 호출 후 목록 갱신·모달 닫기 */
 async function onReasonConfirm(reason) {
   const reqCode = rankInfo?.value?.req_code;
   if (!reqCode) return;
@@ -94,7 +110,6 @@ async function onReasonConfirm(reason) {
   }
   closeReasonModal();
 }
-// 헤더/디테일에 넘길 데이터 (store rankInfo = API data)
 </script>
 <template>
   <div class="container-fluid py-4">
