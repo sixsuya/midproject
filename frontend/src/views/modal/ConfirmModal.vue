@@ -69,9 +69,13 @@ function onClose() {
   background: #fff;
   border: 1px solid #dee2e6;
   border-radius: 0.375rem;
-  min-width: 320px;
-  max-width: 90vw;
+  width: min(90vw, 440px);
+  min-height: 260px;
+  max-height: min(80vh, 360px);
   box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 .confirm-modal-header {
   background: #808080;
@@ -79,10 +83,16 @@ function onClose() {
   padding: 0.75rem 1rem;
   font-weight: 600;
   font-size: 1rem;
+  flex-shrink: 0;
 }
 .confirm-modal-body {
   padding: 1.25rem 1rem;
   text-align: center;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 .confirm-modal-message {
   margin: 0 0 0.5rem;

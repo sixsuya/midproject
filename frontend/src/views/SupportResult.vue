@@ -1,4 +1,8 @@
 <script setup>
+/**
+ * 지원결과 페이지.
+ * 선택된 지원계획에 대한 결과 목록 조회, 결과 추가/수정, 승인·보완·반려, 승인요청·취소 등을 처리한다.
+ */
 // ========== import ==========
 import { ref, reactive, computed, onBeforeMount } from "vue";
 import { useRoute } from "vue-router";
@@ -13,23 +17,54 @@ import { getAlertPreset } from "../utils/alertPresets.js";
 
 // ========== 변수 ==========
 const route = useRoute();
-const supportCode = route.params.supportCode;
-const planCodeFromQuery = route.query.planCode;
+const supportCode = route.params.supportCode; // URL의 지원코드
+const planCodeFromQuery = route.query.planCode; // 쿼리로 넘어온 계획 코드
 
 const supportStore = useSupportStore();
 const { planData, infoData, resultData } = storeToRefs(supportStore);
 const { supportResultDetail, insertResult, updateResult, decideResult } =
   supportStore;
 
+/**
+ * 결과 페이지에 표시할 기준 계획.
+ * planData 첫 번째 항목을 사용한다. (URL 쿼리 planCode로 조회된 계획이 여기 담김)
+ */
 const selectedPlan = computed(() => (planData.value ?? [])[0] ?? null);
 
-const showAddResultForm = ref(false);
-const addForm = reactive({ title: "", content: "" });
-const cancelRequestResultCode = ref(null);
+const showAddResultForm = ref(false); // 결과 추가 폼 표시 여부
+const addForm = reactive({ title: "", content: "" }); // 결과 추가 폼 입력값
+const cancelRequestResultCode = ref(null); // 취소 확인 후 리셋 지시할 result_code
+const addResultFiles = ref([]);
+const addResultFileInput = ref(null);
+function onResultFileChange(e) {
+  const files = Array.from(e.target.files || []);
+  const oversized = files.filter((f) => f.size > 10 * 1024 * 1024);
+  if (oversized.length > 0) {
+    showAlert(
+      "error",
+      "알림",
+      `파일 용량이 10MB를 초과합니다:\n${oversized
+        .map((f) => f.name)
+        .join("\n")}`,
+    );
+    if (addResultFileInput.value) addResultFileInput.value.value = "";
+    return;
+  }
+  addResultFiles.value = files;
+}
+function openResultFileDialog() {
+  if (addResultFileInput.value) addResultFileInput.value.click();
+}
+const addResultFileNames = computed(() =>
+  addResultFiles.value.length
+    ? addResultFiles.value.map((f) => f.name).join(", ")
+    : "",
+);
 
-const approvalConfirm = ref({ show: false, source: "add", payload: null });
-const cancelModal = ref({ show: false, context: "add", resultCode: null });
+const approvalConfirm = ref({ show: false, source: "add", payload: null }); // 승인요청 확인 모달 상태
+const cancelModal = ref({ show: false, context: "add", resultCode: null }); // 취소 확인 모달 상태
 const reasonModal = ref({
+  // 반려/보완 사유 모달 상태
   show: false,
   type: "reject",
   resultCode: null,
@@ -37,37 +72,47 @@ const reasonModal = ref({
 });
 
 const alertModal = ref({
+  // 단순 알림 모달 상태
   show: false,
   type: "success",
   title: "알림",
   message: "",
 });
 
-// 취소 확인 시 해당 Detail에 직접 리셋 지시 (ref by result_code)
+/**
+ * 각 SupportResultDetail 컴포넌트 인스턴스를 result_code 키로 보관.
+ * 취소 확인 시 해당 카드의 resetToViewMode()를 직접 호출하기 위해 사용한다.
+ */
 const resultDetailRefs = {};
+/** v-for 내 :ref 콜백으로 호출 — el이 있으면 등록, null이면 해제 */
 function setResultDetailRef(resultCode, el) {
   if (el) resultDetailRefs[resultCode] = el;
   else delete resultDetailRefs[resultCode];
 }
 
 // ========== 함수 ==========
+/** 결과 추가 폼을 열거나 닫고, 닫을 때 입력값을 비운다. */
 function toggleAddResultForm() {
   showAddResultForm.value = !showAddResultForm.value;
   if (!showAddResultForm.value) {
     addForm.title = "";
     addForm.content = "";
+    addResultFiles.value = [];
   }
 }
 
+/** 알림 모달을 띄운다. (조회 완료/성공 메시지는 표시하지 않음) */
 function showAlert(type, title, message) {
   const m = (message ?? "").trim();
   if (!m || m === "조회 완료" || m === "조회 성공") return;
   alertModal.value = { show: true, type, title, message: m };
 }
+/** 알림 모달을 닫는다. */
 function closeAlertModal() {
   alertModal.value.show = false;
 }
 
+/** 승인요청 확인 모달을 연다. (상세에서 호출 시 payload 필수) */
 function openApprovalConfirm(source, payload) {
   if (source !== "add" && !payload) {
     showAlert("error", "알림", "결과를 입력한 후에 승인요청해 주세요.");
@@ -75,13 +120,16 @@ function openApprovalConfirm(source, payload) {
   }
   approvalConfirm.value = { show: true, source, payload };
 }
+/** 승인요청 확인 모달을 닫는다. */
 function closeApprovalConfirm() {
   approvalConfirm.value = { show: false, source: "add", payload: null };
 }
 
+/** 반려/보완 사유 모달을 연다. */
 function openReasonModal(type, resultCode, resultCmt = "") {
   reasonModal.value = { show: true, type, resultCode, resultCmt };
 }
+/** 반려/보완 사유 모달을 닫는다. */
 function closeReasonModal() {
   reasonModal.value = {
     show: false,
@@ -91,15 +139,19 @@ function closeReasonModal() {
   };
 }
 
+/** 취소 확인 모달을 연다. */
 function openCancelModal(context, resultCode = null) {
   cancelModal.value = { show: true, context, resultCode };
 }
+/** 취소 확인 모달을 닫는다. */
 function closeCancelModal() {
   cancelModal.value = { show: false, context: "add", resultCode: null };
 }
+/** 취소 요청 완료 후 사용한 result_code를 초기화한다. */
 function clearCancelRequest() {
   cancelRequestResultCode.value = null;
 }
+/** 취소 확인 모달에서 확인 시: 추가면 폼만 닫기, 상세면 해당 Detail 리셋 후 취소 완료 알림 */
 function onCancelModalConfirm() {
   if (cancelModal.value.context === "add") {
     showAddResultForm.value = false;
@@ -114,20 +166,58 @@ function onCancelModalConfirm() {
       detail.resetToViewMode();
       clearCancelRequest();
     }
-    const p = getAlertPreset("cancelComplete", "result");
-    showAlert(p.type, p.title, p.message);
+    showAlert("success", "알림", "수정이 취소되었습니다.");
   }
+  closeCancelModal();
 }
 
+/** 수정이력 버튼. 현재는 구현 중 알림만 */
+function updHistory() {
+  showAlert("error", "알림", "구현 중입니다.");
+}
+/** 실제 파일을 서버에 업로드한다. DB INSERT + 물리 파일 저장을 한 번에 처리. */
+async function uploadFilesToServer(files, filePath, categoryPk, uploadMem) {
+  for (const f of files) {
+    const formData = new FormData();
+    formData.append("file", f);
+    formData.append("file_path", filePath);
+    formData.append("file_category", categoryPk);
+    if (uploadMem) formData.append("upload_mem", uploadMem);
+    try {
+      await fetch("/api/upload/file-content", {
+        method: "POST",
+        body: formData,
+      });
+    } catch (e) {
+      console.error("파일 업로드 중 에러", e);
+    }
+  }
+}
+/** 결과 추가 버튼: 추가 폼 토글 */
 function onAddResult() {
   toggleAddResultForm();
 }
+/** 임시저장 불러오기 버튼. 현재는 구현 중 알림만 */
+function onLoadTempResult() {
+  showAlert("error", "알림", "구현 중입니다.");
+}
+/** 결과 추가 폼에서 임시저장 버튼. 현재는 구현 중 알림만 */
+function onTempSaveFromAddResult() {
+  showAlert("error", "알림", "구현 중입니다.");
+}
+/** 결과 상세(수정)에서 임시저장 버튼. 현재는 구현 중 알림만 */
+function onTempSaveFromDetailResult() {
+  showAlert("error", "알림", "구현 중입니다.");
+}
+/** 추가 폼에서 승인요청 확인 모달을 연다. */
 function onApprovalRequestFromAdd() {
   openApprovalConfirm("add", null);
 }
+/** 상세에서 승인요청 시 확인 모달을 연다. */
 function onApprovalRequest(payload) {
   openApprovalConfirm("detail", payload);
 }
+/** 결과를 승인(e0_10) 처리한다. */
 async function onApprove(resultCode) {
   const res = await decideResult(resultCode, "e0_10", null);
   if (res?.retCode === "Success") {
@@ -137,13 +227,16 @@ async function onApprove(resultCode) {
   } else if (res != null)
     showAlert("error", "알림", res.retMsg ?? "처리 중 오류가 발생했습니다.");
 }
+/** 보완 사유 모달을 연다. */
 function onSupple(resultCode) {
   openReasonModal("supple", resultCode, reasonModal.value.resultCmt ?? "");
 }
+/** 반려 사유 모달을 연다. */
 function onReject(resultCode) {
   openReasonModal("reject", resultCode, reasonModal.value.resultCmt ?? "");
 }
 
+/** 반려/보완 사유 확인 시 decideResult 호출 후 목록 갱신·알림 */
 async function onReasonConfirm(reason) {
   const { resultCode, type } = reasonModal.value;
   if (!resultCode) return;
@@ -152,17 +245,30 @@ async function onReasonConfirm(reason) {
   closeReasonModal();
   if (res?.retCode === "Success") {
     await supportResultDetail(supportCode, planCodeFromQuery ?? undefined);
-    const presetKey = decision === "e0_99" ? "rejectComplete" : "suppleComplete";
+    const presetKey =
+      decision === "e0_99" ? "rejectComplete" : "suppleComplete";
     const p = getAlertPreset(presetKey, "result");
     showAlert(p.type, p.title, res.retMsg ?? p.message);
   } else if (res != null)
     showAlert("error", "알림", res.retMsg ?? "처리 중 오류가 발생했습니다.");
 }
+/**
+ * 승인요청 확인 모달에서 확인 클릭 시 호출.
+ * - source === "add"   → 새 결과 INSERT
+ * - source === "detail" → 기존 결과 UPDATE
+ */
 async function onApprovalConfirmYes() {
   const { source, payload } = approvalConfirm.value;
   closeApprovalConfirm();
 
   if (source === "add") {
+    /**
+     * planCode 계산 우선순위:
+     * 1) selectedPlan.value?.plan_code  (현재 화면에 선택된 계획)
+     * 2) planCodeFromQuery              (URL 쿼리로 넘어온 planCode)
+     * 둘 다 없으면 null.
+     * ?? 는 왼쪽 값이 null/undefined 일 때만 오른쪽 값으로 넘어가는 연산자이다.
+     */
     const planCode = selectedPlan.value?.plan_code ?? planCodeFromQuery ?? null;
     if (!planCode) {
       showAlert(
@@ -179,10 +285,20 @@ async function onApprovalConfirmYes() {
       addForm.content?.trim() ?? "",
     );
     if (res?.retCode === "Success") {
+      const newResultCode = res?.result_code ?? null;
+      if (newResultCode && addResultFiles.value.length > 0) {
+        await uploadFilesToServer(
+          addResultFiles.value,
+          "result",
+          newResultCode,
+          infoData?.mgr_no ?? null,
+        );
+      }
       await supportResultDetail(supportCode, planCodeFromQuery ?? undefined);
       showAddResultForm.value = false;
       addForm.title = "";
       addForm.content = "";
+      addResultFiles.value = [];
       const p = getAlertPreset("approvalRequestComplete", "result");
       showAlert(p.type, p.title, res.retMsg ?? p.message);
     } else if (res != null) {
@@ -191,13 +307,12 @@ async function onApprovalConfirmYes() {
     return;
   }
 
+  // source === "detail": 상세 카드에서 수정 후 승인요청 → 기존 결과 UPDATE
   if (!payload) return;
-  const res = await insertResult(
-    supportCode,
-    payload.planCode ?? planCodeFromQuery,
-    payload.title ?? "",
-    payload.content ?? "",
-  );
+  const res = await updateResult(payload.resultCode, {
+    result_title: payload.title ?? "",
+    result_content: payload.content ?? "",
+  });
   if (res?.retCode === "Success") {
     await supportResultDetail(supportCode, planCodeFromQuery ?? undefined);
     const p = getAlertPreset("approvalRequestComplete", "result");
@@ -205,21 +320,55 @@ async function onApprovalConfirmYes() {
   } else if (res != null)
     showAlert("error", "알림", res.retMsg ?? "처리 중 오류가 발생했습니다.");
 }
+/** 상세 수정 완료 시 updateResult 호출 후 파일 처리, 목록 갱신 */
 async function onEditComplete(payload) {
   if (!payload?.resultCode) return;
   const res = await updateResult(payload.resultCode, {
     result_title: payload.title ?? "",
     result_content: payload.content ?? "",
   });
-  if (res?.retCode === "Success")
+  if (res?.retCode === "Success") {
+    // 삭제 표시된 파일 일괄 DELETE
+    const codesToDelete = Array.isArray(payload.deleteFileCodes)
+      ? payload.deleteFileCodes
+      : [];
+    if (codesToDelete.length > 0) {
+      try {
+        await Promise.all(
+          codesToDelete.map((code) =>
+            fetch(`/api/upload/file/${encodeURIComponent(code)}`, {
+              method: "DELETE",
+            }),
+          ),
+        );
+      } catch (e) {
+        console.error("결과 첨부파일 삭제 호출 중 에러", e);
+      }
+    }
+    // 새로 선택된 파일 업로드 (물리 파일 저장 + DB INSERT)
+    if (Array.isArray(payload.newFiles) && payload.newFiles.length > 0) {
+      await uploadFilesToServer(
+        payload.newFiles,
+        "result",
+        payload.resultCode,
+        infoData?.mgr_no ?? null,
+      );
+    }
     await supportResultDetail(supportCode, planCodeFromQuery ?? undefined);
-  else if (res != null)
+    const detail = resultDetailRefs[payload.resultCode];
+    if (detail?.reloadFiles) {
+      await detail.reloadFiles();
+    }
+  } else if (res != null)
     showAlert("error", "알림", res.retMsg ?? "수정 중 오류가 발생했습니다.");
 }
 
 // ========== 라이프사이클 훅 ==========
-onBeforeMount(() => {
-  supportResultDetail(supportCode, planCodeFromQuery ?? undefined);
+onBeforeMount(async () => {
+  // 계획·결과 목록 최초 조회
+  await supportResultDetail(supportCode, planCodeFromQuery ?? undefined);
+  // SupportPlan에서 결과 0건 확인 후 '네' 선택 시 쿼리로 넘어온 경우 추가 폼 자동 오픈
+  if (route.query.openAddForm) showAddResultForm.value = true;
 });
 </script>
 
@@ -237,8 +386,19 @@ onBeforeMount(() => {
       :plan_date="selectedPlan?.plan_date ?? ''"
       :organ_name="selectedPlan?.organ_name ?? ''"
       :plan_goal="selectedPlan?.plan_goal ?? ''"
+      :plan_content="selectedPlan?.plan_content ?? ''"
+      :plan_start_time="selectedPlan?.start_time ?? ''"
+      :plan_end_time="selectedPlan?.end_time ?? ''"
+      :plan_file_name="selectedPlan?.origin_file_name ?? ''"
     />
-    <div class="d-flex justify-content-end mb-2">
+    <div class="d-flex justify-content-end gap-2 mb-2">
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        @click="onLoadTempResult"
+      >
+        임시저장 불러오기
+      </button>
       <button
         type="button"
         class="btn btn-sm btn-outline-primary"
@@ -247,7 +407,7 @@ onBeforeMount(() => {
         결과추가
       </button>
     </div>
-    <!-- 계획 추가 폼: 제목, 내용, 지원기간(시작일~종료일), 첨부 -->
+    <!-- 결과 추가 폼: 제목, 내용, 첨부파일 -->
     <div v-if="showAddResultForm" class="card shadow-sm border-radius-lg mb-4">
       <div class="card-body">
         <div class="mb-3">
@@ -260,7 +420,7 @@ onBeforeMount(() => {
           />
         </div>
         <div class="mb-3">
-          <label class="form-label text-sm text-body mb-1">제목</label>
+          <label class="form-label text-sm text-body mb-1">내용</label>
           <textarea
             v-model="addForm.content"
             class="form-control form-control-sm support-result-textarea"
@@ -270,11 +430,30 @@ onBeforeMount(() => {
         </div>
         <div class="mb-3">
           <label class="form-label text-sm text-body mb-1">첨부파일</label>
-          <div class="form-control form-control-sm bg-light border-0">
-            첨부파일 없음
-          </div>
+          <input
+            ref="addResultFileInput"
+            type="file"
+            class="d-none"
+            multiple
+            @change="onResultFileChange"
+          />
+          <button
+            type="button"
+            class="form-control form-control-sm text-start bg-white"
+            @click="openResultFileDialog"
+          >
+            <span v-if="addResultFileNames">{{ addResultFileNames }}</span>
+            <span v-else class="text-muted">파일을 선택하세요</span>
+          </button>
         </div>
         <div class="d-flex justify-content-end gap-2">
+          <button
+            type="button"
+            class="btn btn-sm btn-secondary"
+            @click="onTempSaveFromAddResult"
+          >
+            임시저장
+          </button>
           <button
             type="button"
             class="btn btn-sm btn-outline-primary"
@@ -303,14 +482,8 @@ onBeforeMount(() => {
       :result_tf="item.result_tf"
       :result_cmt="item.result_cmt"
       :result_updday="item.result_updday"
-      :file_code="item.file_code"
-      :origin_file_name="item.origin_file_name"
-      :server_file_name="item.server_file_name"
-      :file_path="item.file_path"
-      :file_ext="item.file_ext"
       @history="updHistory"
       @result="(resultCode) => result(resultCode)"
-      @edit="edit"
       @edit-complete="onEditComplete"
       @approve="onApprove"
       @supple="onSupple"
@@ -319,8 +492,10 @@ onBeforeMount(() => {
       @cancel-done="clearCancelRequest"
       @approval-request="onApprovalRequest"
       @request-cancel="(resultCode) => openCancelModal('edit', resultCode)"
+      @temp-save="onTempSaveFromDetailResult"
       @add-result="onAddResult"
       :result_result="item.result_tf"
+      @alert="(p) => showAlert(p.type ?? 'error', '알림', p.message ?? '')"
     />
 
     <ConfirmModal

@@ -1,4 +1,10 @@
 <script setup>
+/**
+ * 우선순위 페이지 상단 헤더.
+ * 지원대상, 장애유형, 작성일자, 지원자, 담당자, 우선순위 등 지원 기본 정보를 테이블로 표시한다.
+ */
+// ========== 변수 (props) ==========
+// 부모에서 전달: 지원대상, 지원자, 담당자, 우선순위, 작성일자, 장애유형
 defineProps({
   target_name: { type: String, default: "" },
   member_name: { type: String, default: "" },

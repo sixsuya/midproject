@@ -46,24 +46,6 @@ export const useSupportStore = defineStore("support", () => {
       return null;
     }
   };
-  // 지원계획 임시저장
-  const tempSavePlan = async (supportCode, { save_title, save_content }) => {
-    try {
-      const res = await fetch(`/api/support/${supportCode}/plan/temp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          save_title: save_title ?? "",
-          save_content: save_content ?? "",
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      return data;
-    } catch (err) {
-      console.error("계획 임시저장 중 에러", err);
-      return null;
-    }
-  };
   // 지원계획 수정
   const updatePlan = async (planCode, body) => {
     try {
@@ -92,6 +74,21 @@ export const useSupportStore = defineStore("support", () => {
     } catch (err) {
       console.error("계획 승인/보완/반려 처리 중 에러", err);
       return null;
+    }
+  };
+
+  // 특정 계획의 결과 목록만 조회 (store 갱신 없이 반환만, 결과조회 전 0건 여부 확인용)
+  const fetchResultListForPlan = async (supportCode, planCode) => {
+    try {
+      const url = `/api/support/${supportCode}/result?planCode=${encodeURIComponent(planCode)}`;
+      const res = await fetch(url);
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) return [];
+      const data = await res.json().catch(() => ({}));
+      return data?.resultData ?? [];
+    } catch (err) {
+      console.error("지원결과 조회(건수 확인) 중 에러", err);
+      return [];
     }
   };
 
@@ -185,9 +182,9 @@ export const useSupportStore = defineStore("support", () => {
     resultData,
     supportPlanDetail,
     insertPlan,
-    tempSavePlan,
     updatePlan,
     decidePlan,
+    fetchResultListForPlan,
     supportResultDetail,
     insertResult,
     updateResult,
