@@ -1,22 +1,17 @@
 <script setup>
-import {
-  onBeforeUnmount,
-  onBeforeMount,
-  ref,
-  computed,
-  onUnmounted,
-} from "vue";
+import { onBeforeUnmount, onBeforeMount, ref, computed } from "vue";
 import { onMounted } from "vue";
 import axios from "axios";
 import { useStore } from "vuex";
 import Navbar from "@/examples/PageLayout/Navbar.vue";
 import AppFooter from "@/examples/PageLayout/Footer.vue";
 import ArgonInput from "@/components/ArgonInput.vue";
-import ArgonCheckbox from "@/components/ArgonCheckbox.vue";
 import ArgonButton from "@/components/ArgonButton.vue";
+import { useRouter } from "vue-router";
 
 const body = document.getElementsByTagName("body")[0];
 const store = useStore();
+const router = useRouter();
 
 // --- [상태 관리 변수] ---
 const userid = ref("");
@@ -31,17 +26,16 @@ const confirmPassword = ref("");
 const email = ref("");
 const isEmailVerified = ref(false);
 const authCodeInput = ref("");
-const showEmailModal = ref(false);
+const showAuthSection = ref(false); // 인증번호 발송 후 입력 칸 표시
+const authMessage = ref(""); // 성공/실패 메시지 (작은 글씨)
+const isSendingCode = ref(false); // 발송 중 로딩
+const isVerifying = ref(false); // 인증 중 로딩
 
 const tel = ref("");
 const bd = ref("");
 const address = ref("");
 const userType = ref("");
 const org = ref("");
-
-const timer = ref(180); // 3분
-
-const timerInterval = ref(null);
 
 const organList = ref([]);
 
@@ -53,7 +47,13 @@ const authCodeMap = {
 
 const showModal = ref(false);
 const modalMessage = ref("");
+const countdown = ref(0);
+let timerInterval = null;
 
+const goToSignin = () => router.push("/signin");
+
+const zipCode = ref("");
+const institutions = ref([]);
 // --- [라이프사이클] ---
 
 onMounted(async () => {
@@ -79,6 +79,7 @@ onBeforeUnmount(() => {
   store.state.showSidenav = true;
   store.state.showFooter = true;
   body.classList.add("bg-gray-100");
+  if (timerInterval) clearInterval(timerInterval);
 });
 
 // --- [검증 로직] ---
@@ -94,12 +95,6 @@ const passwordValidationMessage = computed(() => {
   if (password.value !== confirmPassword.value)
     return "비밀번호가 일치하지 않습니다.";
   return "";
-});
-
-const formattedTime = computed(() => {
-  const m = Math.floor(timer.value / 60);
-  const s = timer.value % 60;
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 });
 
 // --- [기능 함수] ---
@@ -132,37 +127,76 @@ const checkIdDuplication = async () => {
   }
 };
 
+// 이메일 인증번호 발송
+const sendEmailVerification = async () => {
+  if (!email.value) {
+    modalMessage.value = "이메일을 입력해주세요.";
+    showModal.value = true;
+    return;
+  }
+  authMessage.value = "";
+  isSendingCode.value = true;
+  try {
+    const res = await axios.post("/api/verifi/join", { email: email.value });
+    authMessage.value = res.data.message || "인증번호가 발송되었습니다.";
+    showAuthSection.value = true;
+    startTimer(); // 3분 타이머
+  } catch (err) {
+    authMessage.value =
+      err.response?.data?.message || "인증번호 발송에 실패했습니다.";
+  } finally {
+    isSendingCode.value = false;
+  }
+};
+// 인증 타이머
 const startTimer = () => {
-  if (timerInterval.value) clearInterval(timerInterval.value);
-  timer.value = 180;
-  timerInterval.value = setInterval(() => {
-    if (timer.value > 0) timer.value--;
-    else {
-      clearInterval(timerInterval.value);
-      alert("인증 시간이 만료되었습니다.");
-      showEmailModal.value = false;
+  countdown.value = 180; // 3분
+
+  if (timerInterval) clearInterval(timerInterval);
+
+  timerInterval = setInterval(() => {
+    if (countdown.value > 0) {
+      countdown.value--;
+    } else {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      authMessage.value = "인증시간이 만료되었습니다. 다시 요청해주세요.";
+      isEmailVerified.value = false;
     }
   }, 1000);
 };
 
-const verifyEmail = () => {
-  if (!email.value) {
-    alert("이메일을 입력해주세요.");
+// 타이머 종료 시 인증번호 입력란 비활성화
+if (countdown.value === 0) {
+  showAuthSection.value = false;
+}
+
+// 인증번호 확인
+const confirmAuthCode = async () => {
+  if (!authCodeInput.value) {
+    authMessage.value = "인증번호를 입력해주세요.";
     return;
   }
-  alert("인증번호가 발송되었습니다.");
-  showEmailModal.value = true;
-  startTimer();
-};
-
-const confirmAuthCode = () => {
-  if (authCodeInput.value === "123456") {
-    alert("인증되었습니다.");
+  authMessage.value = "";
+  isVerifying.value = true;
+  try {
+    const res = await axios.post("/api/verifi/verify", {
+      email: email.value,
+      code: authCodeInput.value,
+      purpose: "i0_10",
+    });
+    authMessage.value = res.data.message || "인증이 완료되었습니다.";
     isEmailVerified.value = true;
-    showEmailModal.value = false;
-    clearInterval(timerInterval.value);
-  } else {
-    alert("인증번호가 틀렸습니다.");
+
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+  } catch (err) {
+    authMessage.value =
+      err.response?.data?.message || "인증번호가 일치하지 않습니다.";
+  } finally {
+    isVerifying.value = false;
   }
 };
 
@@ -202,8 +236,9 @@ const handleSignUp = async () => {
     const res = await axios.post("/api/auth/sign-up", userInfo);
 
     if (res.data.success) {
-      alert("회원가입 완료!");
+      alert("회원가입 완료! 로그인 페이지로 이동합니다.");
       // 로그인 페이지 이동 등
+      router.push("/signin");
     } else {
       alert(res.data.message);
     }
@@ -212,12 +247,29 @@ const handleSignUp = async () => {
     alert("회원가입 실패");
   }
 };
+const fetchInstitutionsByZip = async (zip) => {
+  try {
+    const res = await axios.get(`/api/institution/by-zip/${zip}`);
+    institutions.value = res.data || [];
+  } catch (err) {
+    console.error("기관 조회 실패:", err);
+  }
+};
 
-const searchAddress = () => alert("주소 검색 실행");
+const searchAddress = () => {
+  new window.daum.Postcode({
+    oncomplete: function (data) {
+      // 도로명 주소
+      address.value = data.roadAddress || data.jibunAddress;
 
-onUnmounted(() => {
-  if (timerInterval.value) clearInterval(timerInterval.value);
-});
+      // 우편번호
+      zipCode.value = data.zonecode;
+
+      // 주소 기반 기관 조회
+      fetchInstitutionsByZip(data.zonecode);
+    },
+  }).open();
+};
 </script>
 
 <template>
@@ -382,10 +434,60 @@ onUnmounted(() => {
                       color="success"
                       class="rounded-0 text-nowrap"
                       style="height: 46px"
-                      @click="verifyEmail"
+                      :disabled="isEmailVerified || isSendingCode"
+                      @click="sendEmailVerification"
                     >
-                      {{ isEmailVerified ? "인증완료" : "이메일 인증" }}
+                      {{
+                        isEmailVerified
+                          ? "인증완료"
+                          : isSendingCode
+                            ? "발송중..."
+                            : "이메일 인증"
+                      }}
                     </argon-button>
+                  </div>
+                  <!-- 인증번호 입력 (발송 후 표시) -->
+                  <div v-if="showAuthSection && !isEmailVerified" class="mt-2">
+                    <div class="d-flex gap-2">
+                      <argon-input
+                        v-model="authCodeInput"
+                        placeholder="인증번호 6자리"
+                        class="rounded-0 flex-grow-1"
+                        maxlength="6"
+                      />
+                      <argon-button
+                        type="button"
+                        variant="outline"
+                        color="dark"
+                        class="rounded-0 text-nowrap"
+                        style="height: 46px"
+                        :disabled="isVerifying"
+                        @click="confirmAuthCode"
+                      >
+                        {{ isVerifying ? "확인중..." : "인증" }}
+                      </argon-button>
+                    </div>
+                    <p
+                      v-if="authMessage"
+                      :class="[
+                        'text-xs mt-1 mb-0 ps-1',
+                        isEmailVerified ||
+                        authMessage.includes('완료') ||
+                        authMessage.includes('발송')
+                          ? 'text-success'
+                          : 'text-danger',
+                      ]"
+                    >
+                      {{ authMessage }}
+                    </p>
+                    <p
+                      v-if="countdown > 0 && !isEmailVerified"
+                      class="text-danger text-xs mt-1 mb-0 ps-1"
+                    >
+                      남은 시간 :
+                      {{ Math.floor(countdown / 60) }}:
+                      {{ String(countdown % 60).padStart(2, "0") }}
+                    </p>
                   </div>
                 </div>
 
@@ -414,10 +516,13 @@ onUnmounted(() => {
                 <div class="mb-3">
                   <div class="d-flex gap-2">
                     <argon-input
+                      v-model="zipCode"
+                      placeholder="우편번호"
+                    />
+
+                    <argon-input
                       v-model="address"
                       placeholder="주소"
-                      size="lg"
-                      class="rounded-0 flex-grow-1 mb-0"
                     />
                     <argon-button
                       type="button"
@@ -447,11 +552,20 @@ onUnmounted(() => {
                     {{ item.organ_name }}
                   </option>
                 </select>
-
-                <argon-checkbox checked>
-                  <label class="form-check-label text-sm">이용약관 동의</label>
-                </argon-checkbox>
-
+                <!-- 기관 선택 테스트 -->
+                <div v-if="institutions.length > 0" class="mt-3">
+                  <label class="form-label">아래 기관을 선택해주세요</label>
+                  <select v-model="selectedInstitution" class="form-control">
+                    <option value="">기관 선택</option>
+                    <option
+                      v-for="inst in institutions"
+                      :key="inst.inst_id"
+                      :value="inst.inst_id"
+                    >
+                      {{ inst.inst_name }}
+                    </option>
+                  </select>
+                </div>
                 <div class="text-center mt-4">
                   <argon-button
                     type="submit"
@@ -463,6 +577,15 @@ onUnmounted(() => {
                     >가입하기</argon-button
                   >
                 </div>
+                <div class="text-center mt-3">
+                  <span
+                    class="text-xs text-secondary"
+                    style="cursor: pointer; text-decoration: underline"
+                    @click="goToSignin"
+                  >
+                    - 로그인 화면 이동 -
+                  </span>
+                </div>
               </form>
             </div>
           </div>
@@ -470,49 +593,6 @@ onUnmounted(() => {
       </div>
     </div>
   </main>
-
-  <!-- 모달: 이메일 인증 -->
-  <div
-    v-if="showEmailModal"
-    class="modal fade show d-block"
-    style="background: rgba(0, 0, 0, 0.5); z-index: 10000"
-  >
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content rounded-0 border-0 shadow-lg">
-        <div class="modal-header border-0 pb-0">
-          <h5 class="modal-title font-weight-bolder">이메일 인증</h5>
-        </div>
-        <div class="modal-body py-4 text-center">
-          <p class="text-sm mb-3">
-            인증번호 6자리를 입력해주세요 (테스트: 123456)
-          </p>
-          <argon-input
-            v-model="authCodeInput"
-            placeholder="인증번호"
-            class="rounded-0 text-center mb-2"
-            maxlength="6"
-          />
-          <span class="text-danger font-weight-bold">{{ formattedTime }}</span>
-        </div>
-        <div class="modal-footer border-0 pt-0 justify-content-center">
-          <argon-button
-            color="success"
-            variant="gradient"
-            class="rounded-0 px-5"
-            @click="confirmAuthCode"
-            >인증확인</argon-button
-          >
-          <argon-button
-            color="secondary"
-            variant="outline"
-            class="rounded-0"
-            @click="verifyEmail"
-            >재발송</argon-button
-          >
-        </div>
-      </div>
-    </div>
-  </div>
 
   <!-- 모달: 알림 -->
   <div

@@ -1,6 +1,6 @@
 <script setup>
 import { RouterLink } from "vue-router";
-import HeaderNavbar from "../components/HeaderNavbar.vue";
+// import HeaderNavbar from "../components/HeaderNavbar.vue";
 import { computed } from "vue";
 
 const menuItems = computed(() => [
@@ -14,7 +14,7 @@ const menuItems = computed(() => [
   <div>
     <!-- Header -->
     <nav>
-      <HeaderNavbar />
+      <!-- <HeaderNavbar /> -->
       <div class="container-fluid">
         <ul class="navbar-nav ms-auto">
           <li class="nav-item" v-for="item in menuItems" :key="item.to">

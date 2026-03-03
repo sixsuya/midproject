@@ -14,6 +14,19 @@ Coded by www.creative-tim.com
 -->
 <script setup>
 import { RouterView } from "vue-router";
+import { useAuthStore } from "@/stores/auth";
+
+const authStore = useAuthStore();
+
+const savedToken = localStorage.getItem("token");
+const savedUser = localStorage.getItem("user");
+
+if (savedToken && savedUser) {
+  authStore.setAuth({
+    token: savedToken,
+    user: JSON.parse(savedUser),
+  });
+}
 </script>
 
 <template>

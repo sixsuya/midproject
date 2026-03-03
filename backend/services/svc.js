@@ -7,6 +7,7 @@ const psw_survey = require("./psw_survey_service.js");
 const auth_service = require("./yang_auth_service");
 const upload_service = require("./upload_service");
 const psw_verifi = require("./psw_verifi_service");
+const psw_support_history = require("./psw_support_history_service");
 
 // 선언한 변수를 ...과 함께 아래에 추가해줘야함.
 // mapper 폴더의 개인_mappers.js로 넘김
@@ -19,4 +20,5 @@ module.exports = {
   ...auth_service,
   ...upload_service,
   ...psw_verifi,
+  ...psw_support_history,
 };

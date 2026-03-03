@@ -75,7 +75,7 @@ let tempViewIdSeq = 1;
 const loadSurveyStructure = async () => {
   const sverCode = route.query.sver_code;
   // create 모드에서 sver_code 없으면 빈 구조로 초기화
-  if (!sverCode && mode.value === "create") {
+  if (!sverCode && mode.value == "create") {
     majorCategories.value = [];
     subCategories.value = [];
     questionsBySubcategory.value = [];
@@ -292,7 +292,7 @@ const handleSave = async () => {
 
     await axios[method](url, payload);
     closePreviewModal();
-    router.push({ name: "systemSurveyList" });
+    router.push({ name: "admin-survey-list" });
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("Survey save failed", err);
@@ -300,7 +300,7 @@ const handleSave = async () => {
 };
 
 const handleCancel = () => {
-  router.push({ name: "systemSurveyList" });
+  router.push({ name: "admin-survey-list" });
 };
 
 // 모달 열기/닫기 및 저장 로직
