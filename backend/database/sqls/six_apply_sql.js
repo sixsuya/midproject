@@ -42,6 +42,93 @@ exports.selectSupportBySupCode = `
   WHERE sup_code = ?
 `;
 
+// ✅ 지원자(mem_no)별 지원신청 목록 — applicant 대시보드용 (support + dsbl_prs + rank 진행 + 계획/결과 존재 여부)
+exports.selectApplicantSupportList = `
+  SELECT
+    s.sup_code,
+    s.sup_day,
+    s.req_yn,
+    d.mc_nm       AS target_name,
+    m_app.m_nm    AS applicant_name,
+    m_mgr.m_nm    AS manager_name,
+    sc.s_name     AS stage_name,
+    (SELECT COUNT(*) FROM \`rank\` r WHERE r.sup_code = s.sup_code AND r.s_rank_res = 'e0_00') AS review_cnt,
+    (SELECT COUNT(*) FROM \`rank\` r WHERE r.sup_code = s.sup_code AND r.s_rank_res = 'e0_10') AS approve_cnt,
+    (SELECT COUNT(*) FROM \`rank\` r WHERE r.sup_code = s.sup_code AND r.s_rank_res = 'e0_99') AS reject_cnt,
+    (SELECT COUNT(*) FROM support_result sr
+     INNER JOIN support_plan p ON sr.plan_code = p.plan_code
+     WHERE p.sup_code = s.sup_code) AS result_cnt,
+    (SELECT 1 FROM support_plan p WHERE p.sup_code = s.sup_code LIMIT 1) AS has_plan,
+    (SELECT 1 FROM support_result sr
+     INNER JOIN support_plan p ON sr.plan_code = p.plan_code
+     WHERE p.sup_code = s.sup_code LIMIT 1) AS has_result
+  FROM support s
+  INNER JOIN dsbl_prs d      ON s.mc_pn = d.mc_pn
+  INNER JOIN member m_app    ON s.mem_no = m_app.m_no
+  INNER JOIN member m_mgr    ON s.mgr_no = m_mgr.m_no
+  LEFT JOIN sub_code sc      ON s.req_yn = sc.s_code
+  WHERE s.mem_no = ?
+  ORDER BY s.sup_day DESC
+`;
+
+// ✅ 담당자(mgr_no)별 지원신청 목록 — manager 홈용 (support + dsbl_prs + rank 진행 + 계획/결과 존재 여부)
+exports.selectManagerSupportList = `
+  SELECT
+    s.sup_code,
+    s.sup_day,
+    s.req_yn,
+    d.mc_nm       AS target_name,
+    m_app.m_nm    AS applicant_name,
+    m_mgr.m_nm    AS manager_name,
+    sc.s_name     AS stage_name,
+    (SELECT COUNT(*) FROM \`rank\` r WHERE r.sup_code = s.sup_code AND r.s_rank_res = 'e0_00') AS review_cnt,
+    (SELECT COUNT(*) FROM \`rank\` r WHERE r.sup_code = s.sup_code AND r.s_rank_res = 'e0_10') AS approve_cnt,
+    (SELECT COUNT(*) FROM \`rank\` r WHERE r.sup_code = s.sup_code AND r.s_rank_res = 'e0_99') AS reject_cnt,
+    (SELECT COUNT(*) FROM support_result sr
+     INNER JOIN support_plan p ON sr.plan_code = p.plan_code
+     WHERE p.sup_code = s.sup_code) AS result_cnt,
+    (SELECT 1 FROM support_plan p WHERE p.sup_code = s.sup_code LIMIT 1) AS has_plan,
+    (SELECT 1 FROM support_result sr
+     INNER JOIN support_plan p ON sr.plan_code = p.plan_code
+     WHERE p.sup_code = s.sup_code LIMIT 1) AS has_result
+  FROM support s
+  INNER JOIN dsbl_prs d      ON s.mc_pn = d.mc_pn
+  INNER JOIN member m_app    ON s.mem_no = m_app.m_no
+  INNER JOIN member m_mgr    ON s.mgr_no = m_mgr.m_no
+  LEFT JOIN sub_code sc      ON s.req_yn = sc.s_code
+  WHERE s.mgr_no = ?
+  ORDER BY s.sup_day DESC
+`;
+
+// ✅ 기관(m_org)별 지원신청 목록 — organmanager 홈용 (담당자 소속기관 = 로그인 기관관리자 m_org)
+exports.selectOrganManagerSupportList = `
+  SELECT
+    s.sup_code,
+    s.sup_day,
+    s.req_yn,
+    d.mc_nm       AS target_name,
+    m_app.m_nm    AS applicant_name,
+    m_mgr.m_nm    AS manager_name,
+    sc.s_name     AS stage_name,
+    (SELECT COUNT(*) FROM \`rank\` r WHERE r.sup_code = s.sup_code AND r.s_rank_res = 'e0_00') AS review_cnt,
+    (SELECT COUNT(*) FROM \`rank\` r WHERE r.sup_code = s.sup_code AND r.s_rank_res = 'e0_10') AS approve_cnt,
+    (SELECT COUNT(*) FROM \`rank\` r WHERE r.sup_code = s.sup_code AND r.s_rank_res = 'e0_99') AS reject_cnt,
+    (SELECT COUNT(*) FROM support_result sr
+     INNER JOIN support_plan p ON sr.plan_code = p.plan_code
+     WHERE p.sup_code = s.sup_code) AS result_cnt,
+    (SELECT 1 FROM support_plan p WHERE p.sup_code = s.sup_code LIMIT 1) AS has_plan,
+    (SELECT 1 FROM support_result sr
+     INNER JOIN support_plan p ON sr.plan_code = p.plan_code
+     WHERE p.sup_code = s.sup_code LIMIT 1) AS has_result
+  FROM support s
+  INNER JOIN dsbl_prs d      ON s.mc_pn = d.mc_pn
+  INNER JOIN member m_app    ON s.mem_no = m_app.m_no
+  INNER JOIN member m_mgr    ON s.mgr_no = m_mgr.m_no
+  LEFT JOIN sub_code sc      ON s.req_yn = sc.s_code
+  WHERE m_mgr.m_org = ?
+  ORDER BY s.sup_day DESC
+`;
+
 // ✅ 지원대상자 1건 조회 (mc_pn) — review 화면용
 exports.selectDsblPrsByMcPn = `
   SELECT mc_pn, mc_nm, mc_bd, mc_gender, mc_address, mc_type, gdn_no, mc_submitdate

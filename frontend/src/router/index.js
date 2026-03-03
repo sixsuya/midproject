@@ -6,11 +6,17 @@ import FindId from "../views/FindId.vue";
 import FindPassword from "../views/FindPassword.vue";
 import ResetPassword from "../views/ResetPassword.vue";
 import ProxyTest from "../views/ProxyTest.vue";
-// import ManagerControl from "@/views/ManagerControl.vue";
+import { useAuthStore } from "@/store/auth";
 import kjh from "./kjh";
 import psw from "./psw";
 import six from "./six";
 import yang from "./yang";
+
+/** 로그인이 필요한 경로 (접두어) */
+const AUTH_REQUIRED_PATHS = ["/applicant", "/manager", "/organmanager", "/admin", "/managermanage"];
+function requiresAuth(path) {
+  return AUTH_REQUIRED_PATHS.some((p) => path === p || path.startsWith(p + "/"));
+}
 const routesList = [
   // 1) 지원자(기존) 영역: MainLayout 아래
   {
@@ -102,9 +108,35 @@ const routesList = [
   // },
 ];
 
-const routes = createRouter({
+const router = createRouter({
   history: createWebHistory(process.env.BASE_URL),
   routes: routesList,
 });
 
-export default routes;
+router.beforeEach((to, _from, next) => {
+  const authStore = useAuthStore();
+  const isLoggedIn = authStore.isLoggedIn && !!authStore.user;
+
+  if (to.path === "/signin") {
+    if (isLoggedIn) {
+      const mAuth = authStore.user?.m_auth || "";
+      if (mAuth === "a0_20") return next("/applicant");
+      if (mAuth === "a0_30") return next("/manager");
+      if (mAuth === "a0_40") return next("/organmanager");
+      if (mAuth === "a0_99") return next("/admin");
+      next("/");
+    } else {
+      next();
+    }
+    return;
+  }
+
+  if (requiresAuth(to.path) && !isLoggedIn) {
+    next({ path: "/signin" });
+    return;
+  }
+
+  next();
+});
+
+export default router;
