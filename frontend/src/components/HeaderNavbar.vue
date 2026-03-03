@@ -23,8 +23,10 @@ const isOrganManagerRoute = computed(() =>
 
 const isManagerRoute = computed(() => route.path.startsWith("/manager"));
 
-// ✅ /admin 이면 시스템관리자(m_auth=admin) 영역
-const isAdminRoute = computed(() => route.path.startsWith("/admin"));
+// ✅ /admin 또는 /managermanage 이면 시스템관리자 영역 (담당자 관리 포함)
+const isAdminRoute = computed(() =>
+  route.path.startsWith("/admin") || route.path.startsWith("/managermanage"),
+);
 
 // 로그아웃 버튼 동작
 const onLogout = () => {
@@ -81,7 +83,7 @@ return [
       { label: "홈", to: "/organmanager", icon: "ni ni-shop" },
       {
         label: "담당자 관리",
-        to: "/organmanager/managers",
+        to: "/managermanage",
         icon: "ni ni-single-02",
       },
     ];

@@ -12,7 +12,6 @@ const menuItems = computed(() => [
 
 <template>
   <div>
-    <!-- Header -->
     <nav>
       <!-- <HeaderNavbar /> -->
       <div class="container-fluid">
@@ -25,8 +24,6 @@ const menuItems = computed(() => [
         </ul>
       </div>
     </nav>
-
-    <!-- ✅ 여기서부터 children 화면이 출력됨 -->
     <div class="container-fluid pb-4">
       <router-view />
     </div>
