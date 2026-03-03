@@ -11,6 +11,7 @@ const memberSql = require("./member_sql");
 const authSql = require("./yang_auth_sql");
 const uploadSql = require("./upload_sql.js");
 const psw_verifi = require("./psw_verifi_sql");
+const managerSql = require("./yang_manager_sql");
 
 // 선언한 변수를 ...과 함께 아래에 추가해줘야함.
 // mapper 폴더의 mappers.js로 넘김
@@ -26,4 +27,5 @@ module.exports = {
   ...authSql,
   ...uploadSql,
   ...psw_verifi,
+  ...managerSql,
 };
