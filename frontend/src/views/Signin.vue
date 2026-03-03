@@ -2,6 +2,7 @@
 import { onBeforeMount, onBeforeUnmount, ref } from "vue";
 import { useStore } from "vuex";
 import { useRouter } from "vue-router";
+import { useAuthStore } from "@/store/auth";
 
 import Navbar from "@/examples/PageLayout/Navbar.vue";
 import ArgonInput from "@/components/ArgonInput.vue";
@@ -23,6 +24,9 @@ const goToSignUp = () => router.push("/signup");
 const goToFindId = () => router.push("/find-id");
 const goToResetPassword = () => router.push("/find-password");
 
+// 로그인 저장소 피니아
+const authStore = useAuthStore();
+
 // 로그인 처리
 const handleLogin = async () => {
   if (!userId.value || !password.value) {
@@ -40,9 +44,43 @@ const handleLogin = async () => {
     const data = await res.json();
 
     if (data.success) {
-      localStorage.setItem("token", data.token);
+      // ✅ Pinia에 전체 user + token 저장
+      authStore.setAuth({
+        token: data.token,
+        user: data.user,
+      });
+
+      // localStorage 저장 (자동로그인용)
+      if (rememberMe.value) {
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+      }
+
       alert("로그인 성공!");
-      router.push("/mypage"); // 예: 메인페이지
+
+      // ✅ 권한별 분기
+      switch (data.user.m_auth) {
+        case "a0_10":
+          alert("가입 승인 대기 상태입니다.");
+          router.push("/waiting");
+          break;
+
+        case "a0_20":
+          router.push("/applicant");
+          break;
+
+        case "a0_30":
+        case "a0_40":
+          router.push("/organization");
+          break;
+
+        case "a0_99":
+          router.push("/admin");
+          break;
+
+        default:
+          router.push("/");
+      }
     } else {
       alert(data.message);
     }
@@ -147,7 +185,7 @@ onBeforeUnmount(() => {
                           class="rounded-0 py-1 px-3"
                           size="sm"
                           @click="goToResetPassword"
-                          >비밀번호 찾기</argon-button
+                          >비밀번호 재설정</argon-button
                         >
                       </div>
                     </div>
@@ -183,20 +221,6 @@ onBeforeUnmount(() => {
                       >
                     </div>
                   </form>
-                </div>
-
-                <!-- Footer 링크 -->
-                <div
-                  class="px-1 pt-0 text-center card-footer px-lg-2 bg-transparent border-0"
-                >
-                  <p class="mx-auto mb-4 text-sm">
-                    Don't have an account?
-                    <router-link
-                      to="/signup"
-                      class="text-success text-gradient font-weight-bold"
-                      >Sign up</router-link
-                    >
-                  </p>
                 </div>
               </div>
             </div>

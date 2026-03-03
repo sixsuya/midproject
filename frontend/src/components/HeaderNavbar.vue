@@ -59,24 +59,24 @@ const greetingText = computed(() => {
 // ✅ 메뉴를 경로별로 구성 (admin: 기간 관리(홈), 담당자 관리 a0_30, 기관관리자 관리 a0_40, 설문 목록 / 마이페이지 숨김)
 const navItems = computed(() => {
   if (isAdminRoute.value) {
-    return [
-      { label: "기간 관리", to: "/admin", icon: "ni ni-calendar-grid-58" },
-      {
-        label: "담당자 관리",
-        to: "/managermanage",
-        icon: "ni ni-single-02",
-      },
-      {
-        label: "기관관리자 관리",
-        to: "/admin/organ-managers",
-        icon: "ni ni-building",
-      },
-      {
-        label: "설문 목록",
-        to: "/systemSurveyList",
-        icon: "ni ni-single-copy-04",
-      },
-    ];
+return [
+  { label: "기간 관리", to: "/admin", icon: "ni ni-calendar-grid-58" },
+  {
+    label: "담당자 관리",
+    to: "/admin/manager-control",
+    icon: "ni ni-single-02",
+  },
+  {
+    label: "기관관리자 관리",
+    to: "/admin/organ-managers",
+    icon: "ni ni-building",
+  },
+  {
+    label: "설문 목록",
+    to: "/admin/systemSurveyList",
+    icon: "ni ni-single-copy-04",
+  },
+];
   }
   if (isOrganManagerRoute.value) {
     return [

@@ -6,7 +6,7 @@ import FindId from "../views/FindId.vue";
 import FindPassword from "../views/FindPassword.vue";
 import ResetPassword from "../views/ResetPassword.vue";
 import ProxyTest from "../views/ProxyTest.vue";
-import ManagerControl from "@/views/ManagerControl.vue";
+// import ManagerControl from "@/views/ManagerControl.vue";
 import kjh from "./kjh";
 import psw from "./psw";
 import six from "./six";
@@ -85,21 +85,21 @@ const routesList = [
     name: "ProxyTest",
     component: ProxyTest,
   },
-  {
-    path: "/systemSurveyList",
-    name: "systemSurveyList",
-    component: () => import("../views/SystemManager_survey.vue"),
-  },
-  {
-    path: "/systemSurveyForm",
-    name: "SystemManagerSurveyForm",
-    component: () => import("../views/systemmanager_surveyComp/SurveyForm.vue"),
-  },
-  {
-    path: "/manager-control",
-    name: "managerControl",
-    component: ManagerControl,
-  },
+  // {
+  //   path: "/systemSurveyList",
+  //   name: "systemSurveyList",
+  //   component: () => import("../views/SystemManager_survey.vue"),
+  // },
+  // {
+  //   path: "/systemSurveyForm",
+  //   name: "SystemManagerSurveyForm",
+  //   component: () => import("../views/systemmanager_surveyComp/SurveyForm.vue"),
+  // },
+  // {
+  //   path: "/manager-control",
+  //   name: "managerControl",
+  //   component: ManagerControl,
+  // },
 ];
 
 const routes = createRouter({

@@ -35,6 +35,27 @@ export default [
         name: "admin-home",
         component: () => import("@/views/admin/AdminHome.vue"),
       },
+      {
+        path: "manager-control",
+        name: "admin-manager-control",
+        component: () => import("@/views/ManagerControl.vue"),
+      },
+      {
+        path: "organ-managers",
+        name: "admin-organ-managers",
+        component: () => import("@/views/OrganManager.vue"),
+      },
+      {
+        path: "systemSurveyList",
+        name: "admin-survey-list",
+        component: () => import("@/views/SystemManager_survey.vue"),
+      },
+      {
+        path: "/systemSurveyForm",
+        name: "SystemManagerSurveyForm",
+        component: () =>
+          import("@/views/systemmanager_surveyComp/SurveyForm.vue"),
+      },
     ],
   },
   // 3) 담당자 관리 (헤더 유지를 위해 admin 레이아웃 사용)

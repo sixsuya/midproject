@@ -42,8 +42,13 @@ const svc = {
     return list || [];
   },
 
-  /////// 전체 저장: 등록(create) + 수정(edit)
+  /////// 전체 저장: 등록(create) + 수정(edit) 기능
   /////// - 트리거로 생성된 PK(sver_code, major_code, sub_code)를 같은 트랜잭션 안에서 그대로 참조
+  /////// - 트랜젝션 구조
+  // 1. 전체 저장 버튼 클릭시 해당 값을 모두 가지고오기 (트랜젝션 생성), 2. db에 있는 데이터 (pk값으로 구별)이면 update 수행,
+  // 3. db에 없는 데이터는 pk값이 없음 >> 트랜잭션 중에서 insert 수행(커밋 안함)
+  // >> 방금 insert한 데이터를 조회(최근 생긴 값 조회 기능으로),
+  // 4. 새로 생성된 pk값을 가지고 작업 진행 (수정, insert 등), 5. 모든 작업이 끝나면 해당 트랜젝션 커밋
   psw_saveSurveyAll: async (payload) => {
     // payload의 데이터 구조분해, 변수 선언
     const {
@@ -222,145 +227,142 @@ const svc = {
               subKeyToCode[rawSubKey] = newSubCode;
             }
           }
-         // 4) Question (질문 upsert)
-for (const q of questions) {
-  if (!q || !q.text) continue;
+          // 4) Question (질문 upsert)
+          for (const q of questions) {
+            if (!q || !q.text) {
+              continue;
+            }
 
-  const rawSubKey =
-    q.subId != undefined && q.subId != null ? String(q.subId) : "";
+            const rawSubKey =
+              q.subId != undefined && q.subId != null ? String(q.subId) : "";
 
-  if (!rawSubKey) continue;
+            if (!rawSubKey) {
+              continue;
+            }
 
-  const subCodeFromMap = subKeyToCode[rawSubKey];
-  const subCode = subCodeFromMap || rawSubKey;
+            const subCodeFromMap = subKeyToCode[rawSubKey];
+            const subCode = subCodeFromMap || rawSubKey;
 
-  if (!subCode || !q.qNo || !q.answerType) continue;
+            if (!subCode || !q.qNo || !q.answerType) {
+              continue;
+            }
 
-  const isCheckType = q.answerType === "f0_10";
+            const isCheckType = q.answerType === "f0_10";
 
-  const rawQKey =
-    q.id != undefined && q.id != null ? String(q.id) : "";
+            const rawQKey =
+              q.id != undefined && q.id != null ? String(q.id) : "";
 
-  const isExistingQuestion = rawQKey && rawQKey.startsWith("Q");
+            const isExistingQuestion = rawQKey && rawQKey.startsWith("Q");
 
-  let qCode = null;
+            let qCode = null;
 
-  // ==============================
-  // 1️⃣ 기존 질문 UPDATE
-  // ==============================
-  if (isExistingQuestion) {
-    qCode = rawQKey;
+            // 기존 질문 UPDATE
+            if (isExistingQuestion) {
+              qCode = rawQKey;
 
-    await conn.query(sqlList.psw_surveyQUpdate, [
-      q.qNo,
-      q.answerType,
-      q.text,
-      qCode,
-    ]);
-  }
-  // ==============================
-  // 2️⃣ 신규 질문 INSERT
-  // ==============================
-  else {
-    const result = await conn.query(
-      sqlList.psw_surveyQuestionCreate,
-      [subCode, q.qNo, q.answerType, q.text],
-    );
+              await conn.query(sqlList.psw_surveyQUpdate, [
+                q.qNo,
+                q.answerType,
+                q.text,
+                qCode,
+              ]);
+            }
+            // 신규 질문 INSERT
+            else {
+              const result = await conn.query(
+                sqlList.psw_surveyQuestionCreate,
+                [subCode, q.qNo, q.answerType, q.text],
+              );
 
-    // 트리거 PK면 insertId 사용 불가 → 다시 조회
-    const qRows = await conn.query(
-      sqlList.psw_getLastQuestionCodeBySub,
-      [subCode],
-    );
+              // 트리거 PK면 insertId 사용 불가 → 다시 조회
+              const qRows = await conn.query(
+                sqlList.psw_getLastQuestionCodeBySub,
+                [subCode],
+              );
 
-    if (!qRows || !qRows.length) {
-      throw new Error("질문 코드(q_code)를 조회하지 못했습니다.");
-    }
+              if (!qRows || !qRows.length) {
+                throw new Error("질문 코드(q_code)를 조회하지 못했습니다.");
+              }
 
-    qCode = qRows[0].q_code;
-  }
+              qCode = qRows[0].q_code;
+            }
 
-  // ==============================
-  // 3️⃣ CHECK 타입일 때 보기 upsert
-  // ==============================
-  if (isCheckType && qCode) {
-    const existingViewIds = [];
+            // CHECK 타입일 때 보기 upsert
+            if (isCheckType && qCode) {
+              const existingViewIds = [];
 
-    for (const view of q.views || []) {
-      if (!view || !view.content) continue;
+              for (const view of q.views || []) {
+                if (!view || !view.content) {
+                  continue;
+                }
 
-      const rawViewKey =
-        view.id != undefined && view.id != null
-          ? String(view.id)
-          : "";
+                const rawViewKey =
+                  view.id != undefined && view.id != null
+                    ? String(view.id)
+                    : "";
 
-      const isExistingView =
-        rawViewKey && rawViewKey.startsWith("V");
+                const isExistingView = rawViewKey && rawViewKey.startsWith("V");
 
-      // 🔹 기존 보기 UPDATE
-      if (isExistingView) {
-        await conn.query(sqlList.psw_surveyViewUpdate, [
-          view.content,
-          rawViewKey,
-        ]);
+                //  기존 보기 UPDATE
+                if (isExistingView) {
+                  await conn.query(sqlList.psw_surveyViewUpdate, [
+                    view.content,
+                    rawViewKey,
+                  ]);
 
-        existingViewIds.push(rawViewKey);
-      }
-      // 🔹 신규 보기 INSERT
-      else {
-        await conn.query(sqlList.psw_surveyViewCreate, [
-          qCode,
-          view.content,
-        ]);
+                  existingViewIds.push(rawViewKey);
+                }
+                //  신규 보기 INSERT
+                else {
+                  await conn.query(sqlList.psw_surveyViewCreate, [
+                    qCode,
+                    view.content,
+                  ]);
 
-        // 트리거 PK → 다시 조회
-        const viewRows = await conn.query(
-          sqlList.psw_getLastViewCodeByQuestion,
-          [qCode],
-        );
+                  // 트리거 PK → 다시 조회
+                  const viewRows = await conn.query(
+                    sqlList.psw_getLastViewCodeByQuestion,
+                    [qCode],
+                  );
 
-        if (!viewRows || !viewRows.length) {
-          throw new Error("보기 코드(q_view_code)를 조회하지 못했습니다.");
-        }
+                  if (!viewRows || !viewRows.length) {
+                    throw new Error(
+                      "보기 코드(q_view_code)를 조회하지 못했습니다.",
+                    );
+                  }
 
-        const newViewCode = viewRows[0].q_view_code;
-        existingViewIds.push(newViewCode);
-      }
-    }
+                  const newViewCode = viewRows[0].q_view_code;
+                  existingViewIds.push(newViewCode);
+                }
+              }
 
-    // 🔹 payload에 없는 기존 보기 삭제
-    if (existingViewIds.length) {
-      const placeholders = existingViewIds
-        .map(() => "?")
-        .join(",");
+              //  payload에 없는 기존 보기 삭제
+              if (existingViewIds.length) {
+                const placeholders = existingViewIds.map(() => "?").join(",");
 
-      await conn.query(
-        `
-        DELETE FROM survey_view
-        WHERE q_code = ?
-          AND q_view_code NOT IN (${placeholders})
-        `,
-        [qCode, ...existingViewIds],
-      );
-    } else {
-      // 보기가 하나도 없으면 전체 삭제
-      await conn.query(
-        `DELETE FROM survey_view WHERE q_code = ?`,
-        [qCode],
-      );
-    }
-  }
+                await conn.query(
+                  `
+                  DELETE FROM survey_view
+                  WHERE q_code = ?
+                    AND q_view_code NOT IN (${placeholders})
+                  `,
+                  [qCode, ...existingViewIds],
+                );
+              } else {
+                // 보기가 하나도 없으면 전체 삭제
+                await conn.query(`DELETE FROM survey_view WHERE q_code = ?`, [
+                  qCode,
+                ]);
+              }
+            }
 
-  // ==============================
-  // 4️⃣ CHECK → 다른 타입으로 변경 시
-  // ==============================
-  if (!isCheckType && qCode) {
-    await conn.query(
-      `DELETE FROM survey_view WHERE q_code = ?`,
-      [qCode],
-    );
-  }
-}
+            //  CHECK → 다른 타입으로 변경 시
+            if (!isCheckType && qCode) {
+              await conn.query(`DELETE FROM survey_view WHERE q_code = ?`, [
+                qCode,
+              ]);
+            }
+          }
           // 트랜잭션 안에서 사용한 주요 값(sver_code)을 반환
           return { sver_code: sverCode };
         },
@@ -385,10 +387,6 @@ for (const q of questions) {
     }
   },
 };
-
-// function convertObjToAry(target, keys) {
-//   return keys.map((key) => target[key]);
-// }
 
 // 같은 경로에 있는 svc.js 내보내기
 module.exports = svc;
