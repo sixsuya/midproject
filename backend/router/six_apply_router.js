@@ -74,6 +74,51 @@ router.get("/dsbl-prs", async (req, res) => {
   }
 });
 
+// ✅ 지원자 대시보드 목록: GET /applicant-list?m_no=xxx (login한 지원자 mem_no)
+router.get("/applicant-list", async (req, res) => {
+  try {
+    const mNo = req.query.m_no || "";
+    const data = await sixApplyService.getApplicantSupportList(mNo);
+    return res.json(data);
+  } catch (err) {
+    console.error("[GET /applicant-list]", err);
+    return res.status(500).json({
+      message: "Server error",
+      error: err.message || String(err),
+    });
+  }
+});
+
+// ✅ 담당자 홈 목록: GET /manager-list?m_no=xxx (login한 담당자 mgr_no)
+router.get("/manager-list", async (req, res) => {
+  try {
+    const mNo = req.query.m_no || "";
+    const data = await sixApplyService.getManagerSupportList(mNo);
+    return res.json(data);
+  } catch (err) {
+    console.error("[GET /manager-list]", err);
+    return res.status(500).json({
+      message: "Server error",
+      error: err.message || String(err),
+    });
+  }
+});
+
+// ✅ 기관관리자 홈 목록: GET /organmanager-list?m_org=xxx (login한 기관관리자 m_org)
+router.get("/organmanager-list", async (req, res) => {
+  try {
+    const mOrg = req.query.m_org || "";
+    const data = await sixApplyService.getOrganManagerSupportList(mOrg);
+    return res.json(data);
+  } catch (err) {
+    console.error("[GET /organmanager-list]", err);
+    return res.status(500).json({
+      message: "Server error",
+      error: err.message || String(err),
+    });
+  }
+});
+
 // ✅ 지원 1건 + 대상자 정보: GET /support/:supCode (review 화면)
 router.get("/support/:supCode", async (req, res) => {
   try {

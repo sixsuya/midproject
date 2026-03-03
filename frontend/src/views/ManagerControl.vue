@@ -1,38 +1,56 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
-import axios from "axios";
+import { useAuthStore } from "@/store/auth";
 
-// ====== 페이징 ======
+const authStore = useAuthStore();
+
 const itemsPerPage = 10;
 const currentPage = ref(1);
-
-// ====== 테이블 데이터 (DB 연동) ======
 const tableData = ref([]);
+const searchBy = ref("m_nm");
+const searchValue = ref("");
+const listLoading = ref(false);
+const listError = ref("");
 
-// ====== 담당자 목록 조회 ======
-const fetchManagerList = async () => {
+function mapRow(item, index) {
+  return {
+    id: item.m_no || index + 1,
+    selected: false,
+    userId: item.m_id,
+    userName: item.m_nm,
+    phone: item.m_tel || "",
+    email: item.m_email || "",
+    organName: item.organ_name || item.m_org || "",
+    status: "승인",
+  };
+}
+
+const loadManagers = async () => {
+  listLoading.value = true;
+  listError.value = "";
   try {
-    const res = await axios.get("/api/manager/list"); // 프록시 적용됨
-
-    console.log("🔥 res.data:", res.data);
-
-    // res.data가 배열이면 그대로, 아니면 배열로 감싸기
-    const list = Array.isArray(res.data) ? res.data : [res.data];
-
-    tableData.value = list.map((item, index) => ({
-      id: item.m_no || index + 1,
-      selected: false,
-      userId: item.m_id,
-      userName: item.m_nm,
-      phone: item.m_tel,
-      email: item.m_email,
-      targetCount: item.target_count || 0,
-      joinedAt: item.m_join_date || "",
-      status: item.m_status || "승인",
-    }));
+    const params = new URLSearchParams();
+    if (searchBy.value) params.set("searchBy", searchBy.value);
+    if (searchValue.value) params.set("searchValue", searchValue.value);
+    if (authStore.user?.m_auth === "a0_40" && authStore.user?.m_org) {
+      params.set("m_org", authStore.user.m_org);
+    }
+    const res = await fetch(`/api/admin/managers?${params.toString()}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "목록 조회 실패");
+    const list = Array.isArray(data) ? data : [];
+    tableData.value = list.map((item, i) => mapRow(item, i));
   } catch (err) {
-    console.error("담당자 목록 조회 실패:", err);
+    listError.value = err.message || "담당자 목록을 불러오지 못했습니다.";
+    tableData.value = [];
+  } finally {
+    listLoading.value = false;
   }
+};
+
+const doSearch = () => {
+  currentPage.value = 1;
+  loadManagers();
 };
 
 // ====== 페이징 계산 ======
@@ -73,8 +91,7 @@ const editUserId = ref("");
 const editUserName = ref("");
 const editPhone = ref("");
 const editEmail = ref("");
-const newPassword = ref("");
-const confirmPassword = ref("");
+const editSaving = ref(false);
 
 const handleEdit = (item) => {
   editTarget.value = item;
@@ -87,11 +104,25 @@ const handleEdit = (item) => {
 
 const confirmEdit = async () => {
   if (!editTarget.value) return;
-
-  if (newPassword.value || confirmPassword.value) {
-    if (newPassword.value !== confirmPassword.value) {
-      alert("새 비밀번호와 확인이 일치하지 않습니다.");
-      return;
+  const mNo = editTarget.value.id;
+  if (!mNo) {
+    alert("대상 회원 정보가 없습니다.");
+    return;
+  }
+  editSaving.value = true;
+  try {
+    const res = await fetch(`/api/admin/members/${encodeURIComponent(mNo)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        m_nm: (editUserName.value || "").trim(),
+        m_tel: (editPhone.value || "").trim(),
+        m_email: (editEmail.value || "").trim(),
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || "저장 실패");
     }
     editTarget.value.userName = editUserName.value;
     editTarget.value.phone = editPhone.value;
@@ -106,14 +137,17 @@ const confirmEdit = async () => {
 };
 
 const closeEditModal = () => {
-  isEditModalOpen.value = false;
-  editTarget.value = null;
+  if (!editSaving.value) {
+    isEditModalOpen.value = false;
+    editTarget.value = null;
+    editUserId.value = "";
+    editUserName.value = "";
+    editPhone.value = "";
+    editEmail.value = "";
+  }
 };
 
-// ====== 최초 로딩 ======
-onMounted(() => {
-  fetchManagerList();
-});
+onMounted(() => loadManagers());
 </script>
 
 <template>
@@ -176,16 +210,13 @@ onMounted(() => {
                   담당자명
                 </th>
                 <th class="text-xxs font-weight-bolder opacity-7 ps-2">
+                  소속기관
+                </th>
+                <th class="text-xxs font-weight-bolder opacity-7 ps-2">
                   연락처
                 </th>
                 <th class="text-xxs font-weight-bolder opacity-7 ps-2">
                   이메일
-                </th>
-                <th class="text-center text-xxs font-weight-bolder opacity-7">
-                  지원대상자수
-                </th>
-                <th class="text-center text-xxs font-weight-bolder opacity-7">
-                  가입일
                 </th>
                 <th class="text-center text-xxs font-weight-bolder opacity-7">
                   상태
@@ -211,8 +242,6 @@ onMounted(() => {
                 <td>{{ item.organName }}</td>
                 <td>{{ item.phone }}</td>
                 <td>{{ item.email }}</td>
-                <td class="text-center">{{ item.targetCount }}명</td>
-                <td class="text-center">{{ item.joinedAt }}</td>
                 <td class="text-center">
                   <span
                     class="badge badge-sm"
@@ -301,7 +330,7 @@ onMounted(() => {
                   style="width: 120px; text-align: right"
                   >아이디</label
                 >
-                <input v-model="editUserId" class="form-control flex-grow-1" />
+                <input :value="editUserId" readonly class="form-control flex-grow-1 bg-light" />
               </div>
 
               <div

@@ -3,12 +3,13 @@ const router = express.Router();
 const adminOrganService = require("../services/admin_organ_service");
 const memberService = require("../services/member_service");
 
-// GET /admin/managers - 담당자 목록 (m_auth=a0_30), query: searchBy=m_nm|m_org|m_id, searchValue=
+// GET /admin/managers - 담당자 목록 (m_auth=a0_30), query: searchBy, searchValue, m_org(기관관리자일 때 동일 기관만)
 router.get("/managers", async (req, res) => {
   try {
     const searchBy = req.query.searchBy || null;
     const searchValue = req.query.searchValue || null;
-    const data = await memberService.getManagersList("a0_30", searchBy, searchValue);
+    const mOrg = req.query.m_org || null;
+    const data = await memberService.getManagersList("a0_30", searchBy, searchValue, mOrg);
     return res.json(data);
   } catch (err) {
     console.error("[GET /admin/managers]", err);

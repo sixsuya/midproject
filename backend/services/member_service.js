@@ -1,27 +1,31 @@
 const query = require("../database/mapper/mapper.js");
 
 /**
- * 담당자 목록 (m_auth = a0_30), 검색 옵션: searchBy(m_nm | m_org | m_id), searchValue
+ * 담당자 목록 (m_auth = a0_30)
+ * @param {string} mAuth - 'a0_30'
+ * @param {string|null} searchBy - m_nm | m_org | m_id
+ * @param {string|null} searchValue - 검색어
+ * @param {string|null} mOrgFilter - 기관관리자용: 동일 m_org 담당자만 (같은 소속기관만)
  */
-exports.getManagersList = async (mAuth = "a0_30", searchBy = null, searchValue = null) => {
+exports.getManagersList = async (mAuth = "a0_30", searchBy = null, searchValue = null, mOrgFilter = null) => {
   const rows = await query("selectManagersWithOrgan", [mAuth]);
-  const list = Array.isArray(rows) ? rows : [];
+  let list = Array.isArray(rows) ? rows : [];
+  if (mOrgFilter && String(mOrgFilter).trim()) {
+    const org = String(mOrgFilter).trim();
+    list = list.filter((r) => (r.m_org || "") === org);
+  }
   if (!searchBy || !searchValue || typeof searchValue !== "string") {
     return list;
   }
   const val = searchValue.trim().toLowerCase();
   if (!val) return list;
   return list.filter((r) => {
-    if (searchBy === "m_nm") {
-      return (r.m_nm || "").toLowerCase().includes(val);
-    }
+    if (searchBy === "m_nm") return (r.m_nm || "").toLowerCase().includes(val);
     if (searchBy === "m_org") {
-      const org = (r.organ_name || r.m_org || "").toLowerCase();
-      return org.includes(val);
+      const o = (r.organ_name || r.m_org || "").toLowerCase();
+      return o.includes(val);
     }
-    if (searchBy === "m_id") {
-      return (r.m_id || "").toLowerCase().includes(val);
-    }
+    if (searchBy === "m_id") return (r.m_id || "").toLowerCase().includes(val);
     return true;
   });
 };

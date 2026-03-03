@@ -32,6 +32,27 @@ exports.getDsblPrsByGdnNo = async (gdnNo) => {
   return Array.isArray(rows) ? rows.filter((r) => r && r.mc_pn) : [];
 };
 
+// ✅ 지원자(mem_no)별 지원신청 목록 — /applicant 대시보드
+exports.getApplicantSupportList = async (mNo) => {
+  if (!mNo) return [];
+  const rows = await query("selectApplicantSupportList", [mNo]);
+  return Array.isArray(rows) ? rows : [];
+};
+
+// ✅ 담당자(mgr_no)별 지원신청 목록 — /manager 홈
+exports.getManagerSupportList = async (mNo) => {
+  if (!mNo) return [];
+  const rows = await query("selectManagerSupportList", [mNo]);
+  return Array.isArray(rows) ? rows : [];
+};
+
+// ✅ 기관(m_org)별 지원신청 목록 — /organmanager 홈
+exports.getOrganManagerSupportList = async (mOrg) => {
+  if (!mOrg) return [];
+  const rows = await query("selectOrganManagerSupportList", [mOrg]);
+  return Array.isArray(rows) ? rows : [];
+};
+
 // ✅ sup_code로 support + dsbl_prs 조회 (review 화면)
 exports.getSupportWithDsbl = async (supCode) => {
   const supRows = await query("selectSupportBySupCode", [supCode]);

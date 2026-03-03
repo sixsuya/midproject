@@ -56,13 +56,13 @@ const handleLogin = async () => {
         localStorage.setItem("user", JSON.stringify(data.user));
       }
 
-      alert("로그인 성공!");
+      // alert("로그인 성공!");
 
       // ✅ 권한별 분기
       switch (data.user.m_auth) {
         case "a0_10":
           alert("가입 승인 대기 상태입니다.");
-          router.push("/waiting");
+          // router.push("/waiting");
           break;
 
         case "a0_20":
@@ -70,8 +70,10 @@ const handleLogin = async () => {
           break;
 
         case "a0_30":
+          router.push("/manager");
+          break;
         case "a0_40":
-          router.push("/organization");
+          router.push("/organmanager");
           break;
 
         case "a0_99":

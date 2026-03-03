@@ -1,17 +1,9 @@
 <script setup>
 import { computed } from "vue";
 import { useRouter, useRoute, RouterLink } from "vue-router";
+import { useAuthStore } from "@/store/auth";
 
-// TODO: 나중에 로그인 연동되면 store/pinia에서 가져오면 됨
-const userName = "홍길동";
-
-// ✅ 기관관리자 더미 정보(추후 store/API로)
-const orgName = "대구 남구 지원센터";
-const orgAdminName = "김태균";
-
-// 담당자 더미 정보
-const managerOrgName = "대구 남구 지원센터";
-const managerName = "김래원";
+const authStore = useAuthStore();
 
 const routes = useRouter();
 const route = useRoute();
@@ -28,8 +20,9 @@ const isAdminRoute = computed(() =>
   route.path.startsWith("/admin") || route.path.startsWith("/managermanage"),
 );
 
-// 로그아웃 버튼 동작
+// 로그아웃: Pinia 초기화 후 로그인 페이지로
 const onLogout = () => {
+  authStore.logout();
   routes.push("/signin");
 };
 
@@ -38,22 +31,22 @@ const onMyPageClick = () => {
   alert("마이페이지는 준비중입니다.");
 };
 
-// ✅ 시스템관리자 더미 (추후 store/로그인 연동 시 m_auth 기준으로 표시)
-const adminName = "시스템관리자";
-
-// ✅ 인사말 분기
+// ✅ 인사말: Pinia 로그인 정보(m_nm, m_org) 사용
 const greetingText = computed(() => {
+  const name = authStore.userName || "게스트";
+  const org = authStore.user?.m_org || "";
+
   if (isAdminRoute.value) {
-    return `${adminName} 님 반갑습니다!`;
+    return `${name} 님 반갑습니다!`;
   }
   if (isOrganManagerRoute.value) {
-    return `${orgName} | ${orgAdminName} 기관관리자님`;
+    return org ? `${org} | ${name} 기관관리자님` : `${name} 기관관리자님`;
   }
   if (isManagerRoute.value) {
-    return `${managerOrgName} | ${managerName} 담당자님`;
+    return org ? `${org} | ${name} 담당자님` : `${name} 담당자님`;
   }
 
-  return `${userName} 님 반갑습니다!`;
+  return `${name} 님 반갑습니다!`;
 });
 
 // ✅ 메뉴를 경로별로 구성 (admin: 기간 관리(홈), 담당자 관리 a0_30, 기관관리자 관리 a0_40, 설문 목록 / 마이페이지 숨김)
