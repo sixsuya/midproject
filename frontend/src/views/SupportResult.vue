@@ -21,6 +21,8 @@ import SupportResultDetail from "./support/SupportResultDetail.vue";
 import ReasonModal from "./modal/ReasonModal.vue";
 import ConfirmModal from "./modal/ConfirmModal.vue";
 import AlertModal from "./modal/AlertModal.vue";
+import TempStorageModal from "../components/TempStorageModal.vue";
+import { useTempStorage } from "../composables/useTempStorage.js";
 import { getAlertPreset } from "../utils/alertPresets.js";
 
 // ========== 변수 ==========
@@ -185,9 +187,9 @@ function onCancelModalConfirm() {
   closeCancelModal();
 }
 
-/** 수정이력 버튼. 현재는 구현 중 알림만 */
+/** 수정이력 버튼 — SupportResult 페이지에서는 미사용 (Counsel.vue에서만 동작) */
 function updHistory() {
-  showAlert("error", "알림", "구현 중입니다.");
+  showAlert("error", "알림", "수정이력은 상담내역 화면에서 확인해주세요.");
 }
 /**
  * 결과 첨부파일을 서버에 업로드.
@@ -214,17 +216,67 @@ async function uploadFilesToServer(files, filePath, categoryPk, uploadMem) {
 function onAddResult() {
   toggleAddResultForm();
 }
-/** 임시저장 불러오기 버튼. 현재는 구현 중 알림만 */
+// ─── 임시저장 (지원결과 j0_30) ────────────────────────────────────────────
+let _resultTempPayloadOverride = null;
+
+const {
+  showModal: resultTempModalVisible,
+  tempList: resultTempList,
+  tempListLoading: resultTempListLoading,
+  saveTemp: doResultTempSave,
+  openLoadModal: openResultTempLoadModal,
+  applyItem: applyResultTempItem,
+  deleteSelectedTemp: deleteResultTempAfterInsert,
+} = useTempStorage(
+  () => supportCode,
+  "j0_30",
+  {
+    getPayload: () => {
+      if (_resultTempPayloadOverride) return _resultTempPayloadOverride;
+      return {
+        save_title: (addForm.title ?? "").trim(),
+        save_content: JSON.stringify({ content: addForm.content ?? "" }),
+      };
+    },
+    setPayload: (item) => {
+      if (!item) return;
+      addForm.title = item.save_title ?? "";
+      try {
+        const o = JSON.parse(item.save_content || "{}");
+        addForm.content = o.content ?? item.save_content ?? "";
+      } catch {
+        addForm.content = item.save_content ?? "";
+      }
+    },
+    validate: (payload) => {
+      if (!(payload.save_title && payload.save_title.trim())) {
+        return { valid: false, message: "제목을 입력해주세요." };
+      }
+      return { valid: true };
+    },
+    onAlert: showAlert,
+  },
+);
+
+/** 추가 폼 — 임시저장 불러오기 버튼 */
 function onLoadTempResult() {
-  showAlert("error", "알림", "구현 중입니다.");
+  _resultTempPayloadOverride = null;
+  openResultTempLoadModal();
 }
-/** 결과 추가 폼에서 임시저장 버튼. 현재는 구현 중 알림만 */
+/** 추가 폼 — 임시저장 버튼 */
 function onTempSaveFromAddResult() {
-  showAlert("error", "알림", "구현 중입니다.");
+  _resultTempPayloadOverride = null;
+  doResultTempSave();
 }
-/** 결과 상세(수정)에서 임시저장 버튼. 현재는 구현 중 알림만 */
-function onTempSaveFromDetailResult() {
-  showAlert("error", "알림", "구현 중입니다.");
+/** 상세(수정) — @temp-save 이벤트 (payload: { title, content }) */
+function onTempSaveFromDetailResult(payload) {
+  _resultTempPayloadOverride = {
+    save_title: (payload?.title ?? "").trim(),
+    save_content: JSON.stringify({ content: payload?.content ?? "" }),
+  };
+  doResultTempSave().finally(() => {
+    _resultTempPayloadOverride = null;
+  });
 }
 /** 추가 폼에서 승인요청 확인 모달을 연다. */
 function onApprovalRequestFromAdd() {
@@ -306,6 +358,8 @@ async function onApprovalConfirmYes() {
           infoData?.mgr_no ?? null,
         );
       }
+      // 임시저장에서 불러온 항목이 있으면 등록 완료 후 삭제
+      await deleteResultTempAfterInsert();
       await supportResultDetail(supportCode, planCodeFromQuery ?? undefined);
       showAddResultForm.value = false;
       addForm.title = "";
@@ -549,6 +603,12 @@ onBeforeMount(async () => {
       :title="alertModal.title"
       :message="alertModal.message"
       @close="closeAlertModal"
+    />
+    <TempStorageModal
+      v-model="resultTempModalVisible"
+      :list="resultTempList"
+      :loading="resultTempListLoading"
+      @select="applyResultTempItem"
     />
   </div>
 </template>

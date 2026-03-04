@@ -20,9 +20,7 @@ exports.getCurrentSurvey = async () => {
 // ✅ 지원대상자 목록 (mapper query 사용)
 exports.getTargets = async () => {
   const rows = await query("selectTargets");
-  const dataRows = Array.isArray(rows)
-    ? rows.filter((r) => r && r.mc_pn)
-    : [];
+  const dataRows = Array.isArray(rows) ? rows.filter((r) => r && r.mc_pn) : [];
   return dataRows;
 };
 
@@ -32,89 +30,22 @@ exports.getDsblPrsByGdnNo = async (gdnNo) => {
   return Array.isArray(rows) ? rows.filter((r) => r && r.mc_pn) : [];
 };
 
-// ✅ 마이페이지: 회원 프로필 조회 (m_no)
-exports.getMemberByMno = async (mNo) => {
-  const rows = await query("selectMemberByMno", [mNo]);
-  return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
-};
-
-// ✅ 마이페이지: 회원 본인 프로필 수정 (m_tel, m_email, m_add)
-exports.updateMemberProfileByMno = async (mNo, payload) => {
-  const { m_tel = "", m_email = "", m_add = "" } = payload || {};
-  await query("updateMemberProfileByMno", [m_tel, m_email, m_add, mNo]);
-  return { ok: true };
-};
-
-// ✅ 마이페이지: 지원대상자 수정 (gdn_no 일치 시에만)
-exports.updateDsblPrs = async (mcPn, gdnNo, payload) => {
-  const row = await query("selectDsblPrsByMcPn", [mcPn]);
-  const one = Array.isArray(row) && row.length > 0 ? row[0] : null;
-  if (!one || (one.gdn_no || "") !== (gdnNo || "")) {
-    const err = new Error("해당 지원대상자를 수정할 수 없습니다.");
-    err.code = "FORBIDDEN";
-    throw err;
-  }
-  const { mc_nm, mc_bd, mc_gender, mc_address, mc_type, mc_submitdate } = payload || {};
-  await query("updateDsblPrsByMcPn", [
-    mc_nm ?? one.mc_nm,
-    mc_bd ?? one.mc_bd,
-    mc_gender ?? one.mc_gender,
-    mc_address ?? one.mc_address,
-    mc_type ?? one.mc_type,
-    mc_submitdate ?? one.mc_submitdate,
-    mcPn,
-    gdnNo,
-  ]);
-  return { ok: true };
-};
-
-// mc_pn 생성: DSBL + YYYYMMDD + 4자리 (마이페이지 지원대상자 등록)
-const formatYmdForMcPn = (date) => {
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  return `${yyyy}${mm}${dd}`;
-};
-
-// ✅ 마이페이지: 지원대상자(dsbl_prs) 신규 등록
-exports.createDsblPrs = async (gdnNo, payload) => {
-  const now = new Date();
-  const prefix = `DSBL${formatYmdForMcPn(now)}`;
-  const rows = await query("selectMaxMcPnByDate", [`${prefix}%`]);
-  let next = 1;
-  if (Array.isArray(rows) && rows.length > 0 && rows[0].mc_pn) {
-    const last = String(rows[0].mc_pn);
-    const num = parseInt(last.slice(-4), 10);
-    if (!Number.isNaN(num)) next = num + 1;
-  }
-  const mc_pn = `${prefix}${String(next).padStart(4, "0")}`;
-  const { mc_nm, mc_bd, mc_gender, mc_address, mc_type, mc_submitdate } = payload || {};
-  const subDate = mc_submitdate ? String(mc_submitdate).slice(0, 10) : formatYmdForMcPn(now);
-  await query("insertDsblPrs", [
-    mc_pn,
-    (mc_nm || "").trim(),
-    mc_bd || subDate,
-    mc_gender === "b0_10" ? "b0_10" : "b0_00",
-    (mc_address || "").trim(),
-    (mc_type || "").trim(),
-    gdnNo,
-    subDate,
-  ]);
-  return { ok: true, mc_pn };
-};
-
-// ✅ 지원자(mem_no)별 지원신청 목록 — /applicant 대시보드
+// ✅ 지원자(mem_no)별 지원신청 목록 — /applicant 대시보드 (support.mem_no = m_no, 본인 신청 건만)
 exports.getApplicantSupportList = async (mNo) => {
   if (!mNo) return [];
-  const rows = await query("selectApplicantSupportList", [mNo]);
-  return Array.isArray(rows) ? rows : [];
+  const result = await query("selectApplicantSupportList", [mNo]);
+  if (Array.isArray(result)) return result;
+  if (result && Array.isArray(result.rows)) return result.rows;
+  return [];
 };
 
-// ✅ 담당자(mgr_no)별 지원신청 목록 — /manager 홈
+// ✅ 담당자(mgr_no)별 지원신청 목록 — /manager 홈 (support.mgr_no = m_no)
 exports.getManagerSupportList = async (mNo) => {
   if (!mNo) return [];
-  const rows = await query("selectManagerSupportList", [mNo]);
-  return Array.isArray(rows) ? rows : [];
+  const result = await query("selectManagerSupportList", [mNo]);
+  if (Array.isArray(result)) return result;
+  if (result && Array.isArray(result.rows)) return result.rows;
+  return [];
 };
 
 // ✅ 기관(m_org)별 지원신청 목록 — /organmanager 홈
@@ -127,10 +58,12 @@ exports.getOrganManagerSupportList = async (mOrg) => {
 // ✅ sup_code로 support + dsbl_prs 조회 (review 화면)
 exports.getSupportWithDsbl = async (supCode) => {
   const supRows = await query("selectSupportBySupCode", [supCode]);
-  const support = Array.isArray(supRows) && supRows.length > 0 ? supRows[0] : null;
+  const support =
+    Array.isArray(supRows) && supRows.length > 0 ? supRows[0] : null;
   if (!support || !support.mc_pn) return { support: null, dsbl_prs: null };
   const dsblRows = await query("selectDsblPrsByMcPn", [support.mc_pn]);
-  const dsbl_prs = Array.isArray(dsblRows) && dsblRows.length > 0 ? dsblRows[0] : null;
+  const dsbl_prs =
+    Array.isArray(dsblRows) && dsblRows.length > 0 ? dsblRows[0] : null;
   return { support, dsbl_prs };
 };
 
@@ -150,12 +83,6 @@ exports.getCounselBySupCode = async (supCode) => {
 exports.getMembersByAuth = async (mAuth) => {
   const rows = await query("selectMembersByAuth", [mAuth]);
   return Array.isArray(rows) ? rows.filter((r) => r && r.m_no) : [];
-};
-
-// ✅ 수정이력 목록 (his_category = sup_code, category_name = j0_00 지원신청서 | j0_10 상담 | j0_20 지원계획 | j0_30 지원결과)
-exports.getUpdHistoryByTarget = async (supCode, categoryName) => {
-  const rows = await query("selectUpdHistoryByTarget", [supCode, categoryName]);
-  return Array.isArray(rows) ? rows : [];
 };
 
 // ✅ 지원신청서 수정하기: survey_a만 업데이트 (수정이력 미사용)
@@ -186,76 +113,6 @@ exports.updateSurveyAnswers = async (supCode, payload) => {
   }
 };
 
-// tmp_code 형식: TMP + yyyymmdd(8자) + 4자리 순번
-const generateTmpCode = async (conn) => {
-  const now = new Date();
-  const prefix = `TMP${formatYmd(now)}`;
-  const rows = await conn.query(surveySql.selectMaxTmpCodeByDate, [`${prefix}%`]);
-  let next = 1;
-  if (Array.isArray(rows) && rows.length > 0 && rows[0].tmp_code) {
-    const last = String(rows[0].tmp_code);
-    const num = parseInt(last.slice(-4), 10);
-    if (!Number.isNaN(num)) next = num + 1;
-  }
-  return `${prefix}${String(next).padStart(4, "0")}`;
-};
-
-// 코드테이블: 상담내역 j0_10, 지원계획 j0_20, 지원결과 j0_30 → tar_category 접두어 CNSL*, PLAN*, RES*
-const TEMP_CATEGORY_PREFIX = { j0_10: "CNSL", j0_20: "PLAN", j0_30: "RES" };
-function getTarCategory(supCode, categoryCode) {
-  const prefix = TEMP_CATEGORY_PREFIX[categoryCode] || "CNSL";
-  return `${prefix}-${supCode}`;
-}
-
-/**
- * temp_storage 목록 조회 (review 임시저장 모달용)
- * m_no = support.mgr_no (sup_code 기준), tar_category = CNSL-{supCode} | PLAN-{supCode} | RES-{supCode}, category_name = j0_10 | j0_20 | j0_30
- */
-exports.getTempStorageList = async (supCode, categoryName) => {
-  const supRows = await query("selectSupportBySupCode", [supCode]);
-  const support = Array.isArray(supRows) && supRows.length > 0 ? supRows[0] : null;
-  const mNo = support?.mgr_no;
-  if (!mNo) return [];
-  const tarCategory = getTarCategory(supCode, categoryName);
-  const rows = await query("selectTempStorageList", [tarCategory, categoryName, mNo]);
-  return Array.isArray(rows) ? rows : [];
-};
-
-/**
- * 임시저장 INSERT (temp_storage)
- * category_name = j0_10 | j0_20 | j0_30 (코드테이블), tar_category = CNSL-{supCode} | PLAN-{supCode} | RES-{supCode}
- */
-exports.saveTempStorage = async (supCode, categoryName, payload) => {
-  const { save_title, save_content } = payload || {};
-  let conn;
-  try {
-    conn = await pools.getConnection();
-    const supRows = await conn.query(surveySql.selectSupportBySupCode, [supCode]);
-    const support = Array.isArray(supRows) && supRows.length > 0 ? supRows[0] : null;
-    const mNo = support?.mgr_no;
-    if (!mNo) {
-      throw new Error("해당 지원건(sup_code)을 찾을 수 없거나 담당자 정보가 없습니다.");
-    }
-    const tmpCode = await generateTmpCode(conn);
-    const tarCategory = getTarCategory(supCode, categoryName);
-    await conn.query(surveySql.insertTempStorage, [
-      tmpCode,
-      tarCategory,
-      categoryName,
-      mNo,
-      save_title ?? "",
-      save_content ?? "",
-    ]);
-    await conn.commit();
-    return { tmp_code: tmpCode };
-  } catch (err) {
-    if (conn) await conn.rollback();
-    throw err;
-  } finally {
-    if (conn) conn.release();
-  }
-};
-
 // 질문지 트리 조회 (mapper query 사용)
 // 조사지에 대분류/질문이 없으면 빈 majors로 반환 (404 대신 200)
 exports.getSurveyTree = async (sverCode) => {
@@ -266,7 +123,8 @@ exports.getSurveyTree = async (sverCode) => {
 
   if (dataRows.length === 0) {
     const surveyRows = await query("selectSurveyBySverCode", [sverCode]);
-    const survey = Array.isArray(surveyRows) && surveyRows.length > 0 ? surveyRows[0] : null;
+    const survey =
+      Array.isArray(surveyRows) && surveyRows.length > 0 ? surveyRows[0] : null;
     if (survey) {
       return {
         sver_code: survey.sver_code,
@@ -337,7 +195,9 @@ const formatYmd = (date) => {
 const generateSupCode = async (conn) => {
   const now = new Date();
   const prefix = `SUPT${formatYmd(now)}`;
-  const rows = await conn.query(surveySql.selectMaxSupCodeByDate, [`${prefix}%`]);
+  const rows = await conn.query(surveySql.selectMaxSupCodeByDate, [
+    `${prefix}%`,
+  ]);
   let next = 1;
   if (Array.isArray(rows) && rows.length > 0 && rows[0].sup_code) {
     const last = String(rows[0].sup_code);
@@ -363,7 +223,7 @@ function parseFkError(err) {
   if (!err || err.errno !== 1452) return null;
   const msg = err.sqlMessage || "";
   const m = msg.match(
-    /constraint fails \(`[^`]+`\.`([^`]+)`[^)]*FOREIGN KEY \(`([^`]+)`\) REFERENCES `([^`]+)` \(`([^`]+)`\)/
+    /constraint fails \(`[^`]+`\.`([^`]+)`[^)]*FOREIGN KEY \(`([^`]+)`\) REFERENCES `([^`]+)` \(`([^`]+)`\)/,
   );
   if (!m) return null;
   return {
@@ -377,7 +237,9 @@ function parseFkError(err) {
 // csl_code 형식: CNSL + yyyymmdd(8자) + 4자리 순번
 const generateCslCode = async (conn, date) => {
   const prefix = `CNSL${formatYmd(date)}`;
-  const rows = await conn.query(surveySql.selectMaxCslCodeByDate, [`${prefix}%`]);
+  const rows = await conn.query(surveySql.selectMaxCslCodeByDate, [
+    `${prefix}%`,
+  ]);
   let next = 1;
   if (Array.isArray(rows) && rows.length > 0 && rows[0].csl_code) {
     const last = String(rows[0].csl_code);
@@ -394,25 +256,32 @@ const generateCslCode = async (conn, date) => {
  * @param {{ csl_title: string, csl_date: string, csl_content: string, csl_writer?: string, csl_name?: string }} payload
  */
 exports.createCounsel = async (supCode, payload) => {
-  const { csl_title, csl_date, csl_content, csl_writer, csl_name } = payload || {};
+  const { csl_title, csl_date, csl_content, csl_writer, csl_name } =
+    payload || {};
   if (!csl_title || !csl_date) {
     throw new Error("제목과 상담일은 필수입니다.");
   }
   let conn;
   try {
     conn = await pools.getConnection();
-    const supRows = await conn.query(surveySql.selectSupportBySupCode, [supCode]);
-    const support = Array.isArray(supRows) && supRows.length > 0 ? supRows[0] : null;
+    const supRows = await conn.query(surveySql.selectSupportBySupCode, [
+      supCode,
+    ]);
+    const support =
+      Array.isArray(supRows) && supRows.length > 0 ? supRows[0] : null;
     const mgrNo = support?.mgr_no;
     if (!mgrNo) {
-      throw new Error("해당 지원건(sup_code)을 찾을 수 없거나 담당자 정보가 없습니다.");
+      throw new Error(
+        "해당 지원건(sup_code)을 찾을 수 없거나 담당자 정보가 없습니다.",
+      );
     }
     const writer = csl_writer && csl_writer !== "SYS" ? csl_writer : mgrNo;
     const name = csl_name && csl_name !== "SYS" ? csl_name : mgrNo;
 
     const dateForCode = new Date(csl_date);
     const cslCode = await generateCslCode(conn, dateForCode);
-    const cslDateVal = csl_date.length <= 10 ? `${csl_date} 00:00:00` : csl_date;
+    const cslDateVal =
+      csl_date.length <= 10 ? `${csl_date} 00:00:00` : csl_date;
     await conn.query(surveySql.insertCounsel, [
       cslCode,
       name,
@@ -432,15 +301,7 @@ exports.createCounsel = async (supCode, payload) => {
   }
 };
 
-exports.createApplication = async ({
-  mc_pn,
-  sver_code,
-  write_date,
-  mem_no,
-  mgr_no,
-  req_yn,
-  answers,
-}) => {
+exports.createApplication = async ({ mc_pn, mem_no, req_yn, answers }) => {
   let conn;
   let supCode;
   try {
@@ -448,13 +309,7 @@ exports.createApplication = async ({
     supCode = await generateSupCode(conn);
 
     // 1) support INSERT 후 즉시 커밋 → FK에서 참조 가능하도록 함
-    await conn.query(surveySql.insertSupport, [
-      supCode,
-      mem_no,
-      mc_pn,
-      mgr_no,
-      req_yn,
-    ]);
+    await conn.query(surveySql.insertSupport, [supCode, mem_no, mc_pn, req_yn]);
     await conn.commit();
 
     // 2) survey_a INSERT (위에서 커밋된 sup_code 기준으로 FK 통과)
@@ -462,10 +317,14 @@ exports.createApplication = async ({
     const datePrefix = formatYmd(now);
     const aCodeRows = await conn.query(
       "SELECT a_code FROM survey_a WHERE a_code LIKE ? ORDER BY a_code DESC LIMIT 1",
-      [`ANS${datePrefix}%`]
+      [`ANS${datePrefix}%`],
     );
     let aCodeNext = 1;
-    if (Array.isArray(aCodeRows) && aCodeRows.length > 0 && aCodeRows[0].a_code) {
+    if (
+      Array.isArray(aCodeRows) &&
+      aCodeRows.length > 0 &&
+      aCodeRows[0].a_code
+    ) {
       const last = String(aCodeRows[0].a_code);
       const num = parseInt(last.slice(-4), 10);
       if (!Number.isNaN(num)) aCodeNext = num + 1;
@@ -491,7 +350,10 @@ exports.createApplication = async ({
       try {
         await conn.query("DELETE FROM support WHERE sup_code = ?", [supCode]);
       } catch (delErr) {
-        console.error("[createApplication] orphan support delete failed:", delErr);
+        console.error(
+          "[createApplication] orphan support delete failed:",
+          delErr,
+        );
       }
     }
     const fk = parseFkError(err);

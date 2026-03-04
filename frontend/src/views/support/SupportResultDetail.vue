@@ -11,19 +11,12 @@
  */
 // ========== import ==========
 import { ref, watch, onBeforeMount, computed } from "vue";
-import { storeToRefs } from "pinia";
-import { useAuthStore } from "../../store/auth.js";
+import { useAuthStore } from "@/store/auth";
 
 // ========== auth (버튼 노출 권한) ==========
 const authStore = useAuthStore();
-const { userAuth } = storeToRefs(authStore);
-/** 담당자(a0_30, a0_40) 또는 관리자(a0_99)일 때만 true. 승인/보완/반려 버튼에 사용 */
-const canManageResult = computed(
-  () =>
-    userAuth.value === "a0_99" ||
-    userAuth.value === "a0_40" ||
-    userAuth.value === "a0_30",
-);
+/** 관리자(a0_99)일 때만 true. 승인/보완/반려는 관리자만 노출(담당자 제외). getter 직접 참조로 Counsel 등 조건부 마운트에서도 최신 권한 반영 */
+const canManageResult = computed(() => authStore.isAdmin);
 
 // ========== props / emit ==========
 const props = defineProps({
@@ -312,7 +305,7 @@ watch(
         <button
           type="button"
           class="btn btn-sm btn-secondary"
-          @click="emit('temp-save')"
+          @click="emit('temp-save', { resultCode: result_code, title: titleLocal, content: contentLocal })"
         >
           임시저장
         </button>

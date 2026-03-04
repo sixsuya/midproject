@@ -48,15 +48,7 @@ const svc = {
   // 회원가입 기능
   signUpUser: async (userInfo) => {
     try {
-      // m_no 생성 (MEM + YYYYMMDD + 시퀀스)
-      const date = new Date();
-      const seq = Math.floor(Math.random() * 1000)
-        .toString()
-        .padStart(3, "0");
-      userInfo.m_no = `MEM${date.getFullYear()}${date.getMonth() + 1}${date.getDate()}${seq}`;
-
       const keys = [
-        "m_no",
         "m_id",
         "m_pw",
         "m_nm",

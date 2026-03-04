@@ -226,10 +226,9 @@ exports.insertSupport = `
     sup_code,
     mem_no,
     mc_pn,
-    mgr_no,
     req_yn
   )
-  VALUES (?, ?, ?, ?, ?)
+  VALUES (?, ?, ?, ?)
 `;
 
 // 당일 최대 sup_code 조회 (순번 생성용)
@@ -276,21 +275,6 @@ exports.updateSurveyAnswerContent = `
   UPDATE survey_a SET a_content = ? WHERE a_code = ? AND sup_code = ?
 `;
 
-// ✅ 수정이력 INSERT (지원신청서 등 수정 시)
-exports.selectMaxHistoryNoByDate = `
-  SELECT history_no FROM upd_history
-  WHERE history_no LIKE ?
-  ORDER BY history_no DESC
-  LIMIT 1
-`;
-
-exports.insertUpdHistory = `
-  INSERT INTO upd_history (
-    history_no, his_category, category_name, upd_date, upd_member, upd_target, content, upd_content
-  )
-  VALUES (?, ?, ?, NOW(), ?, ?, ?, ?)
-`;
-
 // ✅ sup_code별 상담내역 목록 (review 우측 상담내역) — 작성자명(m_nm) member 조인
 exports.selectCounselBySupCode = `
   SELECT
@@ -323,47 +307,4 @@ exports.insertCounsel = `
     csl_code, csl_name, csl_date, csl_writer, csl_write_date, csl_title, csl_content, sup_code
   )
   VALUES (?, ?, ?, ?, NOW(), ?, ?, ?)
-`;
-
-// ✅ temp_storage: 당일 최대 tmp_code (TMP + YYYYMMDD + 4자리)
-exports.selectMaxTmpCodeByDate = `
-  SELECT tmp_code FROM temp_storage
-  WHERE tmp_code LIKE ?
-  ORDER BY tmp_code DESC
-  LIMIT 1
-`;
-
-// ✅ temp_storage: 상담등록 임시저장 INSERT
-exports.insertTempStorage = `
-  INSERT INTO temp_storage (
-    tmp_code, tar_category, category_name, save_time, m_no, save_title, save_content
-  )
-  VALUES (?, ?, ?, NOW(), ?, ?, ?)
-`;
-
-// ✅ temp_storage 목록 조회 (tar_category, category_name, m_no 기준 — m_no는 sup_code로 support 조회 후 mgr_no 사용)
-exports.selectTempStorageList = `
-  SELECT tmp_code, save_time, save_title, save_content
-  FROM temp_storage
-  WHERE tar_category = ? AND category_name = ? AND m_no = ?
-  ORDER BY save_time DESC
-`;
-
-// ✅ 수정이력 목록 (his_category = sup_code, category_name = j0_00 지원신청서 등) — member 조인하여 m_nm, m_auth
-exports.selectUpdHistoryByTarget = `
-  SELECT
-    h.history_no,
-    h.his_category,
-    h.category_name,
-    h.upd_date,
-    h.upd_member,
-    h.upd_target,
-    h.content,
-    h.upd_content,
-    m.m_nm,
-    m.m_auth
-  FROM upd_history h
-  LEFT JOIN member m ON m.m_no = h.upd_member
-  WHERE h.his_category = ? AND h.category_name = ?
-  ORDER BY h.upd_date DESC
 `;

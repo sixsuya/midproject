@@ -6,6 +6,10 @@ import { useAuthStore } from "@/store/auth";
 const router = useRouter();
 const authStore = useAuthStore();
 
+/** 로그인한 지원자 정보 — support.mem_no = 이 m_no 로 본인 지원신청만 조회 */
+const loginMNo   = computed(() => authStore.user?.m_no ?? "");
+const loginMName = computed(() => authStore.user?.m_nm ?? "");
+
 /**
  * [1] 좌측 검색(필터) 입력값
  */
@@ -74,8 +78,16 @@ function mapApiRow(r, index) {
   };
 }
 
+function toRowArray(data) {
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.data)) return data.data;
+  if (data && Array.isArray(data.list)) return data.list;
+  if (data && Array.isArray(data.rows)) return data.rows;
+  return [];
+}
+
 async function loadApplicantList() {
-  const mNo = authStore.user?.m_no;
+  const mNo = loginMNo.value;
   if (!mNo) {
     listError.value = "로그인 정보가 없습니다.";
     rows.value = [];
@@ -84,10 +96,12 @@ async function loadApplicantList() {
   listLoading.value = true;
   listError.value = "";
   try {
+    // support.mem_no = 로그인한 지원자 m_no 로 본인이 신청한 건만 조회
     const res = await fetch(`/api/apply/applicant-list?m_no=${encodeURIComponent(mNo)}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || "목록 조회 실패");
-    rows.value = Array.isArray(data) ? data.map((r, i) => mapApiRow(r, i)) : [];
+    const rawRows = toRowArray(data);
+    rows.value = rawRows.map((r, i) => mapApiRow(r, i));
   } catch (e) {
     listError.value = e.message || "지원신청 목록을 불러오지 못했습니다.";
     rows.value = [];
@@ -103,6 +117,8 @@ const onSearch = () => {
 };
 
 const onReset = () => {
+  filters.value.dateFrom = "";
+  filters.value.dateTo = "";
   filters.value.targetName = "";
   filters.value.applicantName = "";
   filters.value.managerName = "";
@@ -144,6 +160,9 @@ const filteredRows = computed(() => {
 
 onMounted(() => {
   loadApplicantList();
+  if (!loginMNo.value) {
+    setTimeout(() => { if (loginMNo.value) loadApplicantList(); }, 300);
+  }
 });
 
 // 지원신청서 보기 → 상담/리뷰 페이지
@@ -171,8 +190,10 @@ const viewResult = (row) => {
           <div class="card-header pb-0">
             <div class="d-flex justify-content-between align-items-center">
               <h6 class="mb-0">상세 검색</h6>
-              <!-- <small class="text-muted">초기화 가능</small> -->
             </div>
+            <p v-if="loginMName" class="text-xs text-muted mb-0 mt-1">
+              지원자: <strong>{{ loginMName }}</strong>
+            </p>
           </div>
 
           <form class="card-body" @submit.prevent="onSearch">
@@ -340,8 +361,11 @@ const viewResult = (row) => {
       <!-- 우측: 지원신청 내역 테이블 -->
       <div class="col-lg-9">
         <div class="card">
-          <div class="card-header pb-0">
+          <div class="card-header pb-0 d-flex align-items-center justify-content-between">
             <h6 class="mb-0">지원신청 내역</h6>
+            <span v-if="loginMName" class="text-xs text-muted">
+              {{ loginMName }} 님이 신청한 건만 표시됩니다
+            </span>
           </div>
 
           <div class="card-body pt-3">
@@ -368,7 +392,9 @@ const viewResult = (row) => {
                     <td colspan="10" class="text-center text-muted py-4">불러오는 중...</td>
                   </tr>
                   <tr v-else-if="filteredRows.length === 0">
-                    <td colspan="10" class="text-center text-sm text-muted py-4">검색 결과가 없습니다.</td>
+                    <td colspan="10" class="text-center text-sm text-muted py-4">
+                      {{ rows.length === 0 ? "본인이 신청한 지원신청이 없습니다." : "검색 조건에 맞는 결과가 없습니다." }}
+                    </td>
                   </tr>
                   <tr v-else v-for="row in filteredRows" :key="row.sup_code || row.no">
                     <td class="text-center text-sm">{{ row.no }}</td>

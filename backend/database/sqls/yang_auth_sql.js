@@ -37,8 +37,8 @@ const qry = {
   // 회원 가입용 (비밀번호 포함)
   signUpUser: `
     INSERT INTO member
-    (m_no, m_id, m_pw, m_nm, m_email, m_tel, m_bd, m_add, m_auth, m_org)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (m_id, m_pw, m_nm, m_email, m_tel, m_bd, m_add, m_auth, m_org)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `,
   // ID 중복 확인용
   checkIdExists: `
