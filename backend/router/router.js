@@ -14,6 +14,8 @@ const uploadRouter = require("./upload_router");
 const psw_verifi = require("./psw_verifi_router");
 const psw_viewAll = require("./psw_support_router");
 const managerRouter = require("./yang_manager_router");
+const tmpRouter = require("./tmp_router");
+const updHistoryRouter = require("./upd_history_router");
 
 // 라우터 주소가 최대한 겹치지 않도록 유의할 필요가 있음
 // 만약 login_router로 불러오는 파일에서 라우터 예시 주소를 URL이라고 설정을 했을 경우
@@ -33,5 +35,7 @@ router.use("/upload", uploadRouter);
 router.use("/verifi", psw_verifi);
 router.use("/viewAll", psw_viewAll);
 router.use("/manager", managerRouter);
+router.use("/tmp", tmpRouter);
+router.use("/history", updHistoryRouter);
 
 module.exports = router;

@@ -1,13 +1,20 @@
 <!-- 상담내역: /review/:sup_code, 좌측 지원대상자(dsbl_prs) + 조사지 결과, 우측 상담등록·목록 -->
 <script setup>
-import { ref, onMounted, computed, watch } from "vue";
+import { ref, reactive, computed, watch, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { useTempStorage } from "@/composables/useTempStorage";
+import { useHistory } from "@/composables/useHistory";
 import TempStorageModal from "@/components/TempStorageModal.vue";
 import { storeToRefs } from "pinia";
 import { useSupportStore } from "@/store/support";
+import { useAuthStore } from "@/store/auth";
 import SupportPlanDetail from "@/views/support/SupportPlanDetail.vue";
 import SupportResultDetail from "@/views/support/SupportResultDetail.vue";
+import RankDetail from "@/views/rank/RankDetail.vue";
+import ConfirmModal from "@/views/modal/ConfirmModal.vue";
+import AlertModal from "@/views/modal/AlertModal.vue";
+import HistoryModal from "@/views/modal/HistoryModal.vue";
+import { getAlertPreset } from "@/utils/alertPresets.js";
 
 const route = useRoute();
 const supCode = computed(() => route.params.sup_code || "");
@@ -60,15 +67,96 @@ onMounted(() => {
 // 우측 상담내역 패널 표시 여부 — URL 진입 시 숨김, '상담내역 보기' 클릭 시 표시
 const showRightPanel = ref(false);
 
-// 좌측 탭: application(지원신청서) | plan(지원계획) | result(지원결과) — 기본 지원신청서
+// 좌측 탭: application(지원신청서) | rank(우선순위) | plan(지원계획) | result(지원결과) — 기본 지원신청서
 const leftTab = ref("application");
 
 // ─── 지원계획 / 지원결과 (store 연동) ───
+const authStore = useAuthStore();
 const supportStore = useSupportStore();
-const { planData, resultData } = storeToRefs(supportStore);
+const { planData, resultData, infoData } = storeToRefs(supportStore);
+
+const { historyModal, openHistoryModal: _openHistoryModal, closeHistoryModal, insertHistory } = useHistory();
 const planLoading = ref(false);
 const resultLoading = ref(false);
 const selectedPlanCode = ref(null); // 결과조회 클릭 시 어떤 계획의 결과인지 기억
+
+// ─── 계획 추가 (SupportPlan.vue와 동일) ───
+const showAddPlanForm = ref(false);
+const addPlanForm = reactive({
+  title: "",
+  content: "",
+  startDate: "",
+  endDate: "",
+});
+const addPlanFiles = ref([]);
+const addPlanFileInput = ref(null);
+const addPlanFileNames = computed(() =>
+  addPlanFiles.value.length
+    ? addPlanFiles.value.map((f) => f.name).join(", ")
+    : "",
+);
+const planApprovalConfirm = ref({ show: false, source: "add", payload: null });
+const planCancelModal = ref({ show: false, context: "add", planCode: null });
+const cancelRequestPlanCode = ref(null);
+
+// ─── 결과 추가 (SupportResult.vue와 동일) ───
+const showAddResultForm = ref(false);
+const addResultForm = reactive({ title: "", content: "" });
+const addResultFiles = ref([]);
+const addResultFileInput = ref(null);
+const addResultFileNames = computed(() =>
+  addResultFiles.value.length
+    ? addResultFiles.value.map((f) => f.name).join(", ")
+    : "",
+);
+const resultApprovalConfirm = ref({ show: false, source: "add", payload: null });
+const resultCancelModal = ref({ show: false, context: "add", resultCode: null });
+const cancelRequestResultCode = ref(null);
+
+/** 결과 추가 시 사용할 plan_code: 결과탭에서 선택된 계획 또는 계획 목록 첫 항목 */
+const selectedPlanCodeForResult = computed(
+  () =>
+    selectedPlanCode.value ?? planData.value?.[0]?.plan_code ?? null,
+);
+
+const alertModal = ref({ show: false, type: "success", title: "알림", message: "" });
+function showAlert(type, title, message) {
+  const m = (message ?? "").trim();
+  if (!m || m === "조회 완료" || m === "조회 성공") return;
+  alertModal.value = { show: true, type, title, message: m };
+}
+function closeAlertModal() {
+  alertModal.value.show = false;
+}
+
+async function uploadFilesToServer(files, filePath, categoryPk, uploadMem) {
+  for (const f of files) {
+    const formData = new FormData();
+    formData.append("file", f);
+    formData.append("file_path", filePath);
+    formData.append("file_category", categoryPk);
+    if (uploadMem) formData.append("upload_mem", uploadMem);
+    try {
+      await fetch("/api/upload/file-content", {
+        method: "POST",
+        body: formData,
+      });
+    } catch (e) {
+      console.error("파일 업로드 중 에러", e);
+    }
+  }
+}
+
+const planDetailRefs = {};
+function setPlanDetailRef(planCode, el) {
+  if (el) planDetailRefs[planCode] = el;
+  else delete planDetailRefs[planCode];
+}
+const resultDetailRefs = {};
+function setResultDetailRef(resultCode, el) {
+  if (el) resultDetailRefs[resultCode] = el;
+  else delete resultDetailRefs[resultCode];
+}
 
 async function loadPlanTab() {
   const code = supCode.value;
@@ -88,8 +176,566 @@ async function loadResultForPlan(planCode) {
   leftTab.value = "result";
 }
 
+// ─── 계획 추가: 폼 토글·파일·승인요청·취소·수정완료 ───
+function toggleAddPlan() {
+  showAddPlanForm.value = !showAddPlanForm.value;
+  if (!showAddPlanForm.value) {
+    addPlanForm.title = "";
+    addPlanForm.content = "";
+    addPlanForm.startDate = "";
+    addPlanForm.endDate = "";
+    addPlanFiles.value = [];
+  }
+}
+function onPlanFileChange(e) {
+  const files = Array.from(e.target.files || []);
+  const oversized = files.filter((f) => f.size > 10 * 1024 * 1024);
+  if (oversized.length > 0) {
+    showAlert("error", "알림", `파일 용량이 10MB를 초과합니다:\n${oversized.map((f) => f.name).join("\n")}`);
+    if (addPlanFileInput.value) addPlanFileInput.value.value = "";
+    return;
+  }
+  addPlanFiles.value = files;
+}
+function openPlanFileDialog() {
+  if (addPlanFileInput.value) addPlanFileInput.value.click();
+}
+function openPlanCancelModal(context, planCode = null) {
+  planCancelModal.value = { show: true, context, planCode };
+}
+function closePlanCancelModal() {
+  planCancelModal.value = { show: false, context: "add", planCode: null };
+}
+function onPlanCancelModalConfirm() {
+  if (planCancelModal.value.context === "add") {
+    showAddPlanForm.value = false;
+    addPlanForm.title = "";
+    addPlanForm.content = "";
+    addPlanForm.startDate = "";
+    addPlanForm.endDate = "";
+    addPlanFiles.value = [];
+  } else {
+    cancelRequestPlanCode.value = planCancelModal.value.planCode;
+    showAlert("success", "알림", "수정이 취소되었습니다.");
+  }
+  closePlanCancelModal();
+}
+function clearCancelRequestPlan() {
+  cancelRequestPlanCode.value = null;
+}
+function onPlanApprovalRequestFromAdd() {
+  planApprovalConfirm.value = { show: true, source: "add", payload: null };
+}
+function onPlanApprovalRequest(payload) {
+  planApprovalConfirm.value = { show: true, source: "detail", payload };
+}
+function closePlanApprovalConfirm() {
+  planApprovalConfirm.value = { show: false, source: "add", payload: null };
+}
+async function onPlanApprovalConfirmYes() {
+  const code = supCode.value;
+  if (planApprovalConfirm.value.source === "add") {
+    closePlanApprovalConfirm();
+    const res = await supportStore.insertPlan(code, {
+      dsbl_no: infoData.value?.dsbl_no ?? null,
+      plan_goal: addPlanForm.title?.trim() ?? "",
+      plan_content: addPlanForm.content?.trim() ?? "",
+      start_date: addPlanForm.startDate || null,
+      end_date: addPlanForm.endDate || null,
+    });
+    if (res?.retCode === "Success") {
+      const newPlanCode = res?.plan_code ?? null;
+      if (newPlanCode && addPlanFiles.value.length > 0) {
+        await uploadFilesToServer(
+          addPlanFiles.value,
+          "plan",
+          newPlanCode,
+          infoData.value?.mgr_no ?? null,
+        );
+      }
+      // 임시저장에서 불러온 항목이 있으면 등록 완료 후 삭제
+      await deletePlanTempAfterInsert();
+      await loadPlanTab();
+      showAddPlanForm.value = false;
+      addPlanForm.title = "";
+      addPlanForm.content = "";
+      addPlanForm.startDate = "";
+      addPlanForm.endDate = "";
+      addPlanFiles.value = [];
+      const p = getAlertPreset("approvalRequestComplete", "plan");
+      showAlert(p.type, p.title, res.retMsg ?? p.message);
+    } else if (res != null) {
+      showAlert("error", "알림", res.retMsg ?? "등록 중 오류가 발생했습니다.");
+    } else {
+      showAlert("error", "알림", "승인요청에 실패했습니다.");
+    }
+  } else {
+    const payload = planApprovalConfirm.value.payload;
+    closePlanApprovalConfirm();
+    if (payload) {
+      const res = await supportStore.updatePlan(payload.planCode, {
+        plan_goal: payload.title,
+        plan_content: payload.content,
+      });
+      if (res?.retCode === "Success") {
+        await loadPlanTab();
+        const p = getAlertPreset("approvalRequestComplete", "plan");
+        showAlert(p.type, p.title, res.retMsg ?? p.message);
+      } else if (res != null) {
+        showAlert("error", "알림", res.retMsg ?? "수정 중 오류가 발생했습니다.");
+      }
+    }
+  }
+}
+async function onPlanEditComplete(payload) {
+  if (!payload?.planCode) return;
+  const before = (planData.value ?? []).find((p) => p.plan_code === payload.planCode);
+  const res = await supportStore.updatePlan(payload.planCode, {
+    plan_goal: payload.title ?? "",
+    plan_content: payload.content ?? "",
+    start_date: payload.startDate ?? null,
+    end_date: payload.endDate ?? null,
+  });
+  if (res?.retCode === "Success") {
+    // 변경된 필드만 추출 (변경 없으면 수정이력 INSERT 생략)
+    const planFields = [
+      { field: "목표",  bv: before?.plan_goal ?? "",  av: payload.title ?? "" },
+      { field: "내용",  bv: before?.plan_content ?? "", av: payload.content ?? "" },
+      { field: "시작일", bv: before?.start_time ? String(before.start_time).slice(0, 10) : "", av: payload.startDate ?? "" },
+      { field: "종료일", bv: before?.end_time   ? String(before.end_time).slice(0, 10)   : "", av: payload.endDate ?? "" },
+    ];
+    const changed = planFields.filter((f) => f.bv !== f.av);
+    if (changed.length > 0) {
+      insertHistory(supCode.value, "j0_20", {
+        updTarget: payload.planCode,
+        updMember: authStore.user?.m_no ?? "",
+        beforeFields: changed.map((f) => ({ field: f.field, value: f.bv })),
+        afterFields:  changed.map((f) => ({ field: f.field, value: f.av })),
+      });
+    }
+    const codesToDelete = Array.isArray(payload.deleteFileCodes) ? payload.deleteFileCodes : [];
+    if (codesToDelete.length > 0) {
+      try {
+        await Promise.all(
+          codesToDelete.map((code) =>
+            fetch(`/api/upload/file/${encodeURIComponent(code)}`, { method: "DELETE" }),
+          ),
+        );
+      } catch (e) {
+        console.error("계획 첨부파일 삭제 중 에러", e);
+      }
+    }
+    if (Array.isArray(payload.newFiles) && payload.newFiles.length > 0) {
+      await uploadFilesToServer(
+        payload.newFiles,
+        "plan",
+        payload.planCode,
+        infoData.value?.mgr_no ?? null,
+      );
+    }
+    await loadPlanTab();
+    const detail = planDetailRefs[payload.planCode];
+    if (detail?.reloadFiles) await detail.reloadFiles();
+  } else if (res != null) {
+    showAlert("error", "알림", res.retMsg ?? "수정 중 오류가 발생했습니다.");
+  }
+}
+// ─── 임시저장 (지원계획 j0_20) ───────────────────────────────────────────
+let _planTempPayloadOverride = null;
+
+const {
+  showModal: planTempModalVisible,
+  tempList: planTempList,
+  tempListLoading: planTempListLoading,
+  saveTemp: doPlanTempSave,
+  openLoadModal: openPlanTempLoadModal,
+  applyItem: applyPlanTempItem,
+  deleteSelectedTemp: deletePlanTempAfterInsert,
+} = useTempStorage(
+  () => supCode.value,
+  "j0_20",
+  {
+    getPayload: () => {
+      if (_planTempPayloadOverride) return _planTempPayloadOverride;
+      return {
+        save_title: (addPlanForm.title ?? "").trim(),
+        save_content: JSON.stringify({
+          content: addPlanForm.content ?? "",
+          startDate: addPlanForm.startDate ?? "",
+          endDate: addPlanForm.endDate ?? "",
+        }),
+      };
+    },
+    setPayload: (item) => {
+      if (!item) return;
+      addPlanForm.title = item.save_title ?? "";
+      try {
+        const o = JSON.parse(item.save_content || "{}");
+        addPlanForm.content = o.content ?? item.save_content ?? "";
+        addPlanForm.startDate = o.startDate ?? "";
+        addPlanForm.endDate = o.endDate ?? "";
+      } catch {
+        addPlanForm.content = item.save_content ?? "";
+      }
+    },
+    validate: (payload) => {
+      if (!(payload.save_title && payload.save_title.trim())) {
+        return { valid: false, message: "제목을 입력해주세요." };
+      }
+      return { valid: true };
+    },
+    onAlert: showAlert,
+  },
+);
+
+function onTempSaveFromAddPlan() {
+  _planTempPayloadOverride = null;
+  doPlanTempSave();
+}
+function onTempSaveFromDetailPlan(payload) {
+  _planTempPayloadOverride = {
+    save_title: (payload?.title ?? "").trim(),
+    save_content: JSON.stringify({ content: payload?.content ?? "" }),
+  };
+  doPlanTempSave().finally(() => { _planTempPayloadOverride = null; });
+}
+function onLoadTempPlan() {
+  _planTempPayloadOverride = null;
+  openPlanTempLoadModal();
+}
+
+// ─── 결과 추가: 폼 토글·파일·승인요청·취소·수정완료 ───
+function toggleAddResultForm() {
+  showAddResultForm.value = !showAddResultForm.value;
+  if (!showAddResultForm.value) {
+    addResultForm.title = "";
+    addResultForm.content = "";
+    addResultFiles.value = [];
+  }
+}
+function onResultFileChange(e) {
+  const files = Array.from(e.target.files || []);
+  const oversized = files.filter((f) => f.size > 10 * 1024 * 1024);
+  if (oversized.length > 0) {
+    showAlert("error", "알림", `파일 용량이 10MB를 초과합니다:\n${oversized.map((f) => f.name).join("\n")}`);
+    if (addResultFileInput.value) addResultFileInput.value.value = "";
+    return;
+  }
+  addResultFiles.value = files;
+}
+function openResultFileDialog() {
+  if (addResultFileInput.value) addResultFileInput.value.click();
+}
+function openResultCancelModal(context, resultCode = null) {
+  resultCancelModal.value = { show: true, context, resultCode };
+}
+function closeResultCancelModal() {
+  resultCancelModal.value = { show: false, context: "add", resultCode: null };
+}
+function onResultCancelModalConfirm() {
+  if (resultCancelModal.value.context === "add") {
+    showAddResultForm.value = false;
+    addResultForm.title = "";
+    addResultForm.content = "";
+    addResultFiles.value = [];
+  } else {
+    const resultCode = resultCancelModal.value.resultCode;
+    closeResultCancelModal();
+    const detail = resultDetailRefs[resultCode];
+    if (detail?.resetToViewMode) detail.resetToViewMode();
+    cancelRequestResultCode.value = null;
+    showAlert("success", "알림", "수정이 취소되었습니다.");
+    return;
+  }
+  closeResultCancelModal();
+}
+function onResultApprovalRequestFromAdd() {
+  resultApprovalConfirm.value = { show: true, source: "add", payload: null };
+}
+function onResultApprovalRequest(payload) {
+  resultApprovalConfirm.value = { show: true, source: "detail", payload };
+}
+function closeResultApprovalConfirm() {
+  resultApprovalConfirm.value = { show: false, source: "add", payload: null };
+}
+async function onResultApprovalConfirmYes() {
+  const code = supCode.value;
+  const planCode = selectedPlanCodeForResult.value;
+  if (resultApprovalConfirm.value.source === "add") {
+    closeResultApprovalConfirm();
+    if (!planCode) {
+      showAlert("error", "알림", "계획 정보가 없습니다. 지원계획에서 계획을 먼저 조회하거나 결과조회로 진입해 주세요.");
+      return;
+    }
+    const res = await supportStore.insertResult(
+      code,
+      planCode,
+      addResultForm.title?.trim() ?? "",
+      addResultForm.content?.trim() ?? "",
+    );
+    if (res?.retCode === "Success") {
+      const newResultCode = res?.result_code ?? null;
+      if (newResultCode && addResultFiles.value.length > 0) {
+        await uploadFilesToServer(
+          addResultFiles.value,
+          "result",
+          newResultCode,
+          infoData.value?.mgr_no ?? null,
+        );
+      }
+      // 임시저장에서 불러온 항목이 있으면 등록 완료 후 삭제
+      await deleteResultTempAfterInsert();
+      await supportStore.supportResultDetail(code, selectedPlanCode.value ?? undefined);
+      showAddResultForm.value = false;
+      addResultForm.title = "";
+      addResultForm.content = "";
+      addResultFiles.value = [];
+      const p = getAlertPreset("approvalRequestComplete", "result");
+      showAlert(p.type, p.title, res.retMsg ?? p.message);
+    } else if (res != null) {
+      showAlert("error", "알림", res.retMsg ?? "등록 중 오류가 발생했습니다.");
+    } else {
+      showAlert("error", "알림", "승인요청에 실패했습니다.");
+    }
+  } else {
+    const payload = resultApprovalConfirm.value.payload;
+    closeResultApprovalConfirm();
+    if (payload) {
+      const res = await supportStore.updateResult(payload.resultCode, {
+        result_title: payload.title ?? "",
+        result_content: payload.content ?? "",
+      });
+      if (res?.retCode === "Success") {
+        await supportStore.supportResultDetail(code, selectedPlanCode.value ?? undefined);
+        const p = getAlertPreset("approvalRequestComplete", "result");
+        showAlert(p.type, p.title, res.retMsg ?? p.message);
+      } else if (res != null) {
+        showAlert("error", "알림", res.retMsg ?? "수정 중 오류가 발생했습니다.");
+      }
+    }
+  }
+}
+async function onResultEditComplete(payload) {
+  if (!payload?.resultCode) return;
+  const code = supCode.value;
+  const before = (resultData.value ?? []).find((r) => r.result_code === payload.resultCode);
+  const res = await supportStore.updateResult(payload.resultCode, {
+    result_title: payload.title ?? "",
+    result_content: payload.content ?? "",
+  });
+  if (res?.retCode === "Success") {
+    // 변경된 필드만 추출 (변경 없으면 수정이력 INSERT 생략)
+    const resultFields = [
+      { field: "제목", bv: before?.result_title ?? "",   av: payload.title ?? "" },
+      { field: "내용", bv: before?.result_content ?? "", av: payload.content ?? "" },
+    ];
+    const changed = resultFields.filter((f) => f.bv !== f.av);
+    if (changed.length > 0) {
+      insertHistory(code, "j0_30", {
+        updTarget: payload.resultCode,
+        updMember: authStore.user?.m_no ?? "",
+        beforeFields: changed.map((f) => ({ field: f.field, value: f.bv })),
+        afterFields:  changed.map((f) => ({ field: f.field, value: f.av })),
+      });
+    }
+    const codesToDelete = Array.isArray(payload.deleteFileCodes) ? payload.deleteFileCodes : [];
+    if (codesToDelete.length > 0) {
+      try {
+        await Promise.all(
+          codesToDelete.map((code) =>
+            fetch(`/api/upload/file/${encodeURIComponent(code)}`, { method: "DELETE" }),
+          ),
+        );
+      } catch (e) {
+        console.error("결과 첨부파일 삭제 중 에러", e);
+      }
+    }
+    if (Array.isArray(payload.newFiles) && payload.newFiles.length > 0) {
+      await uploadFilesToServer(
+        payload.newFiles,
+        "result",
+        payload.resultCode,
+        infoData.value?.mgr_no ?? null,
+      );
+    }
+    await supportStore.supportResultDetail(code, selectedPlanCode.value ?? undefined);
+    const detail = resultDetailRefs[payload.resultCode];
+    if (detail?.reloadFiles) await detail.reloadFiles();
+  } else if (res != null) {
+    showAlert("error", "알림", res.retMsg ?? "수정 중 오류가 발생했습니다.");
+  }
+}
+// ─── 임시저장 (지원결과 j0_30) ───────────────────────────────────────────
+let _resultTempPayloadOverride = null;
+
+const {
+  showModal: resultTempModalVisible,
+  tempList: resultTempList,
+  tempListLoading: resultTempListLoading,
+  saveTemp: doResultTempSave,
+  openLoadModal: openResultTempLoadModal,
+  applyItem: applyResultTempItem,
+  deleteSelectedTemp: deleteResultTempAfterInsert,
+} = useTempStorage(
+  () => supCode.value,
+  "j0_30",
+  {
+    getPayload: () => {
+      if (_resultTempPayloadOverride) return _resultTempPayloadOverride;
+      return {
+        save_title: (addResultForm.title ?? "").trim(),
+        save_content: JSON.stringify({ content: addResultForm.content ?? "" }),
+      };
+    },
+    setPayload: (item) => {
+      if (!item) return;
+      addResultForm.title = item.save_title ?? "";
+      try {
+        const o = JSON.parse(item.save_content || "{}");
+        addResultForm.content = o.content ?? item.save_content ?? "";
+      } catch {
+        addResultForm.content = item.save_content ?? "";
+      }
+    },
+    validate: (payload) => {
+      if (!(payload.save_title && payload.save_title.trim())) {
+        return { valid: false, message: "제목을 입력해주세요." };
+      }
+      return { valid: true };
+    },
+    onAlert: showAlert,
+  },
+);
+
+function onTempSaveFromAddResult() {
+  _resultTempPayloadOverride = null;
+  doResultTempSave();
+}
+function onTempSaveFromDetailResult(payload) {
+  _resultTempPayloadOverride = {
+    save_title: (payload?.title ?? "").trim(),
+    save_content: JSON.stringify({ content: payload?.content ?? "" }),
+  };
+  doResultTempSave().finally(() => { _resultTempPayloadOverride = null; });
+}
+function onLoadTempResult() {
+  _resultTempPayloadOverride = null;
+  openResultTempLoadModal();
+}
+
+// ─── 수정이력 모달 (계획/결과 공용) ─────────────────────────────────────
+function openHistoryModal(categoryName) {
+  const titleMap = { j0_20: "지원계획 수정이력", j0_30: "지원결과 수정이력" };
+  _openHistoryModal(supCode.value, categoryName, titleMap[categoryName] ?? "수정이력");
+}
+function clearCancelRequestResult() {
+  cancelRequestResultCode.value = null;
+}
+
+// ─── 우선순위 탭 ───────────────────────────────────────────────────────────
+const rankData  = ref(null);   // GET /api/rank/:supCode 응답
+const rankLoading = ref(false);
+// RankDetail v-model 바인딩용 로컬 상태
+const rankCodeLocal = ref("");
+const rankCmtLocal  = ref("");
+
+async function loadRankTab() {
+  const code = supCode.value;
+  if (!code) return;
+  rankLoading.value = true;
+  try {
+    const res = await fetch(`/api/rank/${encodeURIComponent(code)}`);
+    const json = await res.json();
+    rankData.value = json?.data ?? null;
+    rankCodeLocal.value = rankData.value?.s_rank_code ?? "";
+    rankCmtLocal.value  = rankData.value?.rank_cmt    ?? "";
+  } catch (e) {
+    console.error("[loadRankTab]", e);
+    rankData.value = null;
+  } finally {
+    rankLoading.value = false;
+  }
+}
+
+async function onRankApprovalRequest({ s_rank_code, apply_for, prev_req_code }) {
+  const code = supCode.value;
+  if (!code) return;
+  try {
+    const res = await fetch("/api/rank/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sup_code: code,
+        s_rank_code,
+        mgr_no: infoData.value?.mgr_no ?? null,
+        apply_for: apply_for ?? "",
+        prev_req_code: prev_req_code ?? null,
+      }),
+    });
+    const json = await res.json();
+    if (json?.retCode === "Success") {
+      showAlert("success", "알림", "승인요청이 완료되었습니다.");
+      await loadRankTab();
+    } else {
+      showAlert("error", "알림", json?.retMsg ?? "승인요청에 실패했습니다.");
+    }
+  } catch (e) {
+    showAlert("error", "알림", "승인요청 중 오류가 발생했습니다.");
+  }
+}
+
+async function onRankDecide(decision) {
+  const reqCode = rankData.value?.req_code;
+  const code    = supCode.value;
+  if (!reqCode || !code) return;
+  try {
+    const res = await fetch("/api/rank/decide", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ req_code: reqCode, sup_code: code, decision }),
+    });
+    const json = await res.json();
+    if (json?.retCode === "Success") {
+      const label = decision === "e0_10" ? "승인" : "반려";
+      showAlert("success", "알림", `우선순위 ${label}이 완료되었습니다.`);
+      await loadRankTab();
+    } else {
+      showAlert("error", "알림", json?.retMsg ?? "처리에 실패했습니다.");
+    }
+  } catch (e) {
+    showAlert("error", "알림", "처리 중 오류가 발생했습니다.");
+  }
+}
+
+async function onRankSupple() {
+  const reqCode = rankData.value?.req_code;
+  if (!reqCode) return;
+  try {
+    const res = await fetch("/api/rank/supple", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ req_code: reqCode, rank_cmt: rankCmtLocal.value }),
+    });
+    const json = await res.json();
+    if (json?.retCode === "Success") {
+      showAlert("supple", "알림", "보완 처리가 완료되었습니다.");
+      await loadRankTab();
+    } else {
+      showAlert("error", "알림", json?.retMsg ?? "보완 처리에 실패했습니다.");
+    }
+  } catch (e) {
+    showAlert("error", "알림", "보완 처리 중 오류가 발생했습니다.");
+  }
+}
+
+function onRankCancel() {
+  rankCodeLocal.value = rankData.value?.s_rank_code ?? "";
+  rankCmtLocal.value  = rankData.value?.rank_cmt    ?? "";
+}
+
 // 탭 전환 시 데이터 로드
 watch(leftTab, (tab) => {
+  if (tab === "rank" && !rankData.value) loadRankTab();
   if (tab === "plan" && planData.value.length === 0) loadPlanTab();
   if (tab === "result" && !selectedPlanCode.value && resultData.value.length === 0) {
     const code = supCode.value;
@@ -177,7 +823,7 @@ async function saveApplicationEdit() {
     .filter((r) => r.a_code)
     .map((r) => ({ a_code: r.a_code, a_content: r.a_content ?? "" }));
   if (answers.length === 0) {
-    alert("저장할 답변이 없습니다.");
+    showAlert("error", "알림", "저장할 답변이 없습니다.");
     return;
   }
   applicationSaveLoading.value = true;
@@ -197,7 +843,7 @@ async function saveApplicationEdit() {
     applicationEditMode.value = false;
     await loadSurveyAnswers();
   } catch (e) {
-    alert(e.message || "저장에 실패했습니다.");
+    showAlert("error", "알림", e.message || "저장에 실패했습니다.");
   } finally {
     applicationSaveLoading.value = false;
   }
@@ -344,25 +990,26 @@ const {
       }
       return { valid: true };
     },
+    onAlert: showAlert,
   },
 );
 
 async function saveCounsel() {
   if (!counselForm.value.csl_title?.trim()) {
-    alert("제목을 입력해주세요.");
+    showAlert("error", "알림", "제목을 입력해주세요.");
     return;
   }
   if (!counselForm.value.counselDate) {
-    alert("상담일을 선택해주세요.");
+    showAlert("error", "알림", "상담일을 선택해주세요.");
     return;
   }
   if (!counselForm.value.csl_writer?.trim()) {
-    alert("작성자를 선택해주세요.");
+    showAlert("error", "알림", "작성자를 선택해주세요.");
     return;
   }
   const code = supCode.value;
   if (!code) {
-    alert("지원번호가 없습니다.");
+    showAlert("error", "알림", "지원번호가 없습니다.");
     return;
   }
   counselFormSaving.value = true;
@@ -388,7 +1035,7 @@ async function saveCounsel() {
     showForm.value = false;
     await loadCounsels();
   } catch (e) {
-    alert(e.message || "저장에 실패했습니다.");
+    showAlert("error", "알림", e.message || "저장에 실패했습니다.");
   } finally {
     counselFormSaving.value = false;
   }
@@ -487,7 +1134,7 @@ function formatCounselDate(val) {
             </div>
           </div>
 
-          <!-- 이동 링크: 지원신청서 | 지원계획 | 지원결과 -->
+          <!-- 이동 링크: 지원신청서 | 우선순위 | 지원계획 | 지원결과 -->
           <div class="mb-2">
             <button
               type="button"
@@ -498,6 +1145,14 @@ function formatCounselDate(val) {
               @click="leftTab = 'application'"
             >
               지원신청서
+            </button>
+            <button
+              type="button"
+              class="btn btn-link btn-sm p-0 me-3 text-decoration-none"
+              :class="leftTab === 'rank' ? 'fw-bold text-dark' : 'text-muted'"
+              @click="leftTab = 'rank'"
+            >
+              우선순위
             </button>
             <button
               type="button"
@@ -662,9 +1317,87 @@ function formatCounselDate(val) {
                   </div>
                 </div>
               </template>
+              <!-- 우선순위 -->
+              <template v-else-if="leftTab === 'rank'">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                  <h6 class="text-sm text-uppercase text-muted mb-0">우선순위</h6>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    @click="loadRankTab"
+                  >
+                    새로고침
+                  </button>
+                </div>
+                <p v-if="rankLoading" class="text-muted text-sm mb-0">로딩 중...</p>
+                <p v-else-if="!rankData" class="text-muted text-sm mb-0">우선순위 정보가 없습니다.</p>
+                <RankDetail
+                  v-else
+                  :rank_code="rankCodeLocal"
+                  :rank_cmt="rankCmtLocal"
+                  :priority="rankData.priority ?? ''"
+                  :apply_for="rankData.apply_for ?? ''"
+                  :s_rank_res="rankData.s_rank_res ?? ''"
+                  :req_code="rankData.req_code ?? ''"
+                  @update:rank_code="(v) => (rankCodeLocal = v)"
+                  @update:rank_cmt="(v) => (rankCmtLocal = v)"
+                  @approval-request="onRankApprovalRequest"
+                  @approve="onRankDecide('e0_10')"
+                  @reject="onRankDecide('e0_99')"
+                  @supple="onRankSupple"
+                  @cancel="onRankCancel"
+                />
+              </template>
+
               <!-- 지원계획 -->
               <template v-else-if="leftTab === 'plan'">
-                <h6 class="text-sm text-uppercase text-muted mb-3">지원계획</h6>
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                  <h6 class="text-sm text-uppercase text-muted mb-0">지원계획</h6>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-primary"
+                    @click="toggleAddPlan"
+                  >
+                    계획추가
+                  </button>
+                </div>
+                <!-- 계획 추가 폼 -->
+                <div v-if="showAddPlanForm" class="card shadow-sm border-radius-lg mb-4">
+                  <div class="card-body">
+                    <div class="d-flex justify-content-end gap-2 mb-3">
+                      <button type="button" class="btn btn-sm btn-outline-secondary" @click="onLoadTempPlan">임시저장 불러오기</button>
+                      <button type="button" class="btn btn-sm btn-secondary" @click="onTempSaveFromAddPlan">임시저장</button>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label text-sm text-body mb-1">제목</label>
+                      <input v-model="addPlanForm.title" type="text" class="form-control form-control-sm" placeholder="지원 계획 제목" />
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label text-sm text-body mb-1">내용</label>
+                      <textarea v-model="addPlanForm.content" class="form-control form-control-sm" placeholder="계획" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label text-sm text-body mb-1">지원기간</label>
+                      <div class="d-flex align-items-center flex-wrap gap-2">
+                        <input v-model="addPlanForm.startDate" type="date" class="form-control form-control-sm" style="max-width: 11rem" />
+                        <span class="text-body">~</span>
+                        <input v-model="addPlanForm.endDate" type="date" class="form-control form-control-sm" style="max-width: 11rem" />
+                      </div>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label text-sm text-body mb-1">첨부파일</label>
+                      <input ref="addPlanFileInput" type="file" class="d-none" multiple @change="onPlanFileChange" />
+                      <button type="button" class="form-control form-control-sm text-start bg-white" @click="openPlanFileDialog">
+                        <span v-if="addPlanFileNames">{{ addPlanFileNames }}</span>
+                        <span v-else class="text-muted">파일을 선택하세요. 10MB 초과 불가.</span>
+                      </button>
+                    </div>
+                    <div class="d-flex justify-content-end gap-2">
+                      <button type="button" class="btn btn-sm btn-outline-primary" @click="onPlanApprovalRequestFromAdd">승인요청</button>
+                      <button type="button" class="btn btn-sm btn-outline-secondary" @click="openPlanCancelModal('add')">취소</button>
+                    </div>
+                  </div>
+                </div>
                 <div v-if="planLoading" class="text-muted text-sm">로딩 중...</div>
                 <div v-else-if="planData.length === 0" class="text-muted text-sm">
                   등록된 지원계획이 없습니다.
@@ -673,29 +1406,76 @@ function formatCounselDate(val) {
                   <SupportPlanDetail
                     v-for="plan in planData"
                     :key="plan.plan_code"
+                    :ref="(el) => setPlanDetailRef(plan.plan_code, el)"
                     :plan_code="plan.plan_code"
                     :support_plan_title="plan.plan_goal"
                     :support_plan_content="plan.plan_content"
                     :start_time="plan.start_time"
                     :end_time="plan.end_time"
+                    :support_plan_file="plan.origin_file_name"
+                    :file_code="plan.file_code"
                     :plan_result="plan.plan_tf"
                     :plan_date="plan.plan_date"
                     :support_plan_comment="plan.plan_cmt"
                     :support_plan_reject_comment="plan.plan_cmt"
                     :support_plan_updday="plan.plan_updday"
+                    :cancel-request="cancelRequestPlanCode"
                     @result="loadResultForPlan"
                     @approve="(pc) => supportStore.decidePlan(pc, 'e0_10', null).then(() => loadPlanTab())"
                     @supple="(pc) => supportStore.decidePlan(pc, 'e0_80', null).then(() => loadPlanTab())"
                     @reject="(pc) => supportStore.decidePlan(pc, 'e0_99', null).then(() => loadPlanTab())"
-                    @edit-complete="(payload) => supportStore.updatePlan(payload.planCode, { plan_goal: payload.title, plan_content: payload.content, start_date: payload.startDate, end_date: payload.endDate }).then(() => loadPlanTab())"
-                    @approval-request="(payload) => supportStore.updatePlan(payload.planCode, { plan_goal: payload.title, plan_content: payload.content }).then(() => loadPlanTab())"
+                    @edit-complete="onPlanEditComplete"
+                    @approval-request="onPlanApprovalRequest"
+                    @request-cancel="(planCode) => openPlanCancelModal('edit', planCode)"
+                    @cancel-done="clearCancelRequestPlan"
                     @end="(pc) => supportStore.endPlan(pc).then(() => loadPlanTab())"
+                    @temp-save="onTempSaveFromDetailPlan"
+                    @history="() => openHistoryModal('j0_20')"
+                    @alert="(p) => showAlert(p.type ?? 'error', '알림', p.message ?? '')"
                   />
                 </template>
               </template>
               <!-- 지원결과 -->
               <template v-else>
-                <h6 class="text-sm text-uppercase text-muted mb-3">지원결과</h6>
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                  <h6 class="text-sm text-uppercase text-muted mb-0">지원결과</h6>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-primary"
+                    @click="toggleAddResultForm"
+                  >
+                    결과추가
+                  </button>
+                </div>
+                <!-- 결과 추가 폼 -->
+                <div v-if="showAddResultForm" class="card shadow-sm border-radius-lg mb-4">
+                  <div class="card-body">
+                    <div class="d-flex justify-content-end gap-2 mb-3">
+                      <button type="button" class="btn btn-sm btn-outline-secondary" @click="onLoadTempResult">임시저장 불러오기</button>
+                      <button type="button" class="btn btn-sm btn-secondary" @click="onTempSaveFromAddResult">임시저장</button>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label text-sm text-body mb-1">제목</label>
+                      <input v-model="addResultForm.title" type="text" class="form-control form-control-sm" placeholder="지원 결과 제목" />
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label text-sm text-body mb-1">내용</label>
+                      <textarea v-model="addResultForm.content" class="form-control form-control-sm" placeholder="결과" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label text-sm text-body mb-1">첨부파일</label>
+                      <input ref="addResultFileInput" type="file" class="d-none" multiple @change="onResultFileChange" />
+                      <button type="button" class="form-control form-control-sm text-start bg-white" @click="openResultFileDialog">
+                        <span v-if="addResultFileNames">{{ addResultFileNames }}</span>
+                        <span v-else class="text-muted">파일을 선택하세요. 10MB 초과 불가.</span>
+                      </button>
+                    </div>
+                    <div class="d-flex justify-content-end gap-2">
+                      <button type="button" class="btn btn-sm btn-outline-primary" @click="onResultApprovalRequestFromAdd">승인요청</button>
+                      <button type="button" class="btn btn-sm btn-outline-secondary" @click="openResultCancelModal('add')">취소</button>
+                    </div>
+                  </div>
+                </div>
                 <div v-if="resultLoading" class="text-muted text-sm">로딩 중...</div>
                 <div v-else-if="resultData.length === 0" class="text-muted text-sm">
                   등록된 지원결과가 없습니다.
@@ -704,6 +1484,7 @@ function formatCounselDate(val) {
                   <SupportResultDetail
                     v-for="result in resultData"
                     :key="result.result_code"
+                    :ref="(el) => setResultDetailRef(result.result_code, el)"
                     :result_code="result.result_code"
                     :result_title="result.result_title"
                     :result_content="result.result_content"
@@ -712,10 +1493,17 @@ function formatCounselDate(val) {
                     :result_cmt="result.result_cmt"
                     :result_updday="result.result_updday"
                     :result_result="result.result_tf"
+                    :cancel-request="cancelRequestResultCode"
                     @approve="(rc) => supportStore.decideResult(rc, 'e0_10', null).then(() => supportStore.supportResultDetail(supCode.value, selectedPlanCode.value))"
                     @supple="(rc) => supportStore.decideResult(rc, 'e0_80', null).then(() => supportStore.supportResultDetail(supCode.value, selectedPlanCode.value))"
                     @reject="(rc) => supportStore.decideResult(rc, 'e0_99', null).then(() => supportStore.supportResultDetail(supCode.value, selectedPlanCode.value))"
-                    @edit-complete="(payload) => supportStore.updateResult(payload.resultCode, { result_title: payload.title, result_content: payload.content }).then(() => supportStore.supportResultDetail(supCode.value, selectedPlanCode.value))"
+                    @edit-complete="onResultEditComplete"
+                    @approval-request="onResultApprovalRequest"
+                    @request-cancel="(resultCode) => openResultCancelModal('edit', resultCode)"
+                    @cancel-done="clearCancelRequestResult"
+                    @temp-save="onTempSaveFromDetailResult"
+                    @history="() => openHistoryModal('j0_30')"
+                    @alert="(p) => showAlert(p.type ?? 'error', '알림', p.message ?? '')"
                   />
                 </template>
               </template>
@@ -970,6 +1758,70 @@ function formatCounselDate(val) {
       :list="tempStorageList"
       :loading="tempStorageListLoading"
       @select="applyTempStorageItem"
+    />
+
+    <!-- 지원계획: 승인요청 확인 / 취소 확인 -->
+    <ConfirmModal
+      :show="planApprovalConfirm.show"
+      title="승인 요청"
+      message="지원 계획 승인 요청을 하시겠습니까?"
+      @close="closePlanApprovalConfirm"
+      @confirm="onPlanApprovalConfirmYes"
+    />
+    <ConfirmModal
+      :show="planCancelModal.show"
+      title="지원 계획 취소"
+      message="작성 중인 지원 계획을 취소하시겠습니까?"
+      warning-message="임시저장 되지 않은 계획은 삭제 시 복구가 불가합니다."
+      @close="closePlanCancelModal"
+      @confirm="onPlanCancelModalConfirm"
+    />
+    <!-- 지원결과: 승인요청 확인 / 취소 확인 -->
+    <ConfirmModal
+      :show="resultApprovalConfirm.show"
+      title="승인 요청"
+      message="지원 결과 승인 요청을 하시겠습니까?"
+      @close="closeResultApprovalConfirm"
+      @confirm="onResultApprovalConfirmYes"
+    />
+    <ConfirmModal
+      :show="resultCancelModal.show"
+      title="지원 결과 취소"
+      message="작성 중인 지원 결과를 취소하시겠습니까?"
+      warning-message="임시저장 되지 않은 결과는 삭제 시 복구가 불가합니다."
+      @close="closeResultCancelModal"
+      @confirm="onResultCancelModalConfirm"
+    />
+    <AlertModal
+      :show="alertModal.show"
+      :type="alertModal.type"
+      :title="alertModal.title"
+      :message="alertModal.message"
+      @close="closeAlertModal"
+    />
+
+    <!-- 지원계획 임시저장 불러오기 모달 -->
+    <TempStorageModal
+      v-model="planTempModalVisible"
+      :list="planTempList"
+      :loading="planTempListLoading"
+      @select="applyPlanTempItem"
+    />
+    <!-- 지원결과 임시저장 불러오기 모달 -->
+    <TempStorageModal
+      v-model="resultTempModalVisible"
+      :list="resultTempList"
+      :loading="resultTempListLoading"
+      @select="applyResultTempItem"
+    />
+
+    <!-- 수정이력 모달 (계획/결과 공용) -->
+    <HistoryModal
+      :show="historyModal.show"
+      :title="historyModal.title"
+      :list="historyModal.list"
+      :loading="historyModal.loading"
+      @close="closeHistoryModal"
     />
   </div>
 </template>

@@ -134,22 +134,6 @@ router.get("/support/:supCode", async (req, res) => {
   }
 });
 
-// ✅ 수정이력 목록: GET /support/:supCode/upd-history?category_name=j0_00|j0_10|j0_20|j0_30 (지원신청서 j0_00 등)
-router.get("/support/:supCode/upd-history", async (req, res) => {
-  try {
-    const { supCode } = req.params;
-    const categoryName = req.query.category_name || "j0_00";
-    const data = await sixApplyService.getUpdHistoryByTarget(supCode, categoryName);
-    return res.json(data);
-  } catch (err) {
-    console.error("[GET /support/:supCode/upd-history]", err);
-    return res.status(500).json({
-      message: "Server error",
-      error: err.message || String(err),
-    });
-  }
-});
-
 // ✅ 조사지 질문+답변 목록: GET /support/:supCode/survey-answers (review 지원신청서)
 router.get("/support/:supCode/survey-answers", async (req, res) => {
   try {
@@ -218,45 +202,6 @@ router.post("/support/:supCode/counsels", async (req, res) => {
   }
 });
 
-// ✅ 임시저장 목록 조회: GET /support/:supCode/temp-storage?category_name=j0_10|j0_20|j0_30
-router.get("/support/:supCode/temp-storage", async (req, res) => {
-  try {
-    const { supCode } = req.params;
-    const categoryName = req.query.category_name || "j0_10";
-    const data = await sixApplyService.getTempStorageList(supCode, categoryName);
-    return res.json(data);
-  } catch (err) {
-    console.error("[GET /support/:supCode/temp-storage]", err);
-    return res.status(500).json({
-      message: "Server error",
-      error: err.message || String(err),
-    });
-  }
-});
-
-// ✅ 임시저장 INSERT: POST /support/:supCode/temp-storage (body: category_name=j0_10|j0_20|j0_30, save_title, save_content)
-router.post("/support/:supCode/temp-storage", async (req, res) => {
-  try {
-    const { supCode } = req.params;
-    const payload = req.body || {};
-    const categoryName = payload.category_name || "j0_10";
-    const result = await sixApplyService.saveTempStorage(supCode, categoryName, payload);
-    return res.status(201).json({
-      message: "ok",
-      tmp_code: result.tmp_code,
-    });
-  } catch (err) {
-    if (err.message && err.message.includes("찾을 수 없거나")) {
-      return res.status(400).json({ message: err.message });
-    }
-    console.error("[POST /support/:supCode/temp-storage]", err);
-    return res.status(500).json({
-      message: "Server error",
-      error: err.message || String(err),
-    });
-  }
-});
-
 // 질문지 트리 조회
 router.get("/surveys/:sverCode", async (req, res) => {
   try {
@@ -279,17 +224,9 @@ router.get("/surveys/:sverCode", async (req, res) => {
 // 지원신청 저장
 router.post("/applications", async (req, res) => {
   try {
-    const {
-      mc_pn,
-      sver_code,
-      write_date,
-      mem_no,
-      mgr_no,
-      req_yn,
-      answers,
-    } = req.body;
+    const { mc_pn, sver_code, write_date, mem_no, req_yn, answers } = req.body;
 
-    if (!mc_pn || !sver_code || !mem_no || !mgr_no || !req_yn) {
+    if (!mc_pn || !sver_code || !mem_no || !req_yn) {
       return res.status(400).json({ message: "필수 값이 누락되었습니다." });
     }
 

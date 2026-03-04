@@ -188,8 +188,7 @@ const onSave = async () => {
 
     // 모든 질문에 답변이 있는지 검사 (null/빈값이면 저장하지 않음)
     const missing = allQuestionCodes.value.filter(
-      (qCode) =>
-        answers.value[qCode] !== "Y" && answers.value[qCode] !== "N",
+      (qCode) => answers.value[qCode] !== "Y" && answers.value[qCode] !== "N",
     );
     if (missing.length > 0) {
       alert("모든 항목에 답변해 주세요. 답변하지 않은 문항이 있습니다.");
@@ -198,15 +197,13 @@ const onSave = async () => {
 
     // TODO: 로그인/담당자 연동 후 실제 값으로 교체
     const memNo = "MEM202602240023"; // 지원자(신청자)
-    const mgrNo = "MEM202602240021"; // 담당자
-    const reqYn = "d0_00"; // 부코드(판정 상태) 기본값
+    const reqYn = "e0_00"; // 부코드(판정 상태) 기본값
 
     const payload = {
       mc_pn: selectedMcPn.value,
       sver_code: selectedSurveyCode.value,
       write_date: writeDate.value,
       mem_no: memNo,
-      mgr_no: mgrNo,
       req_yn: reqYn,
       answers: answers.value,
     };
@@ -230,7 +227,8 @@ const onCancel = () => alert("취소(더미)");
       v-else-if="!currentSurvey?.sver_code"
       class="text-center text-muted py-5"
     >
-      현재 신청 가능한 조사지가 없습니다. (오늘 날짜가 조사 기간에 포함된 조사지가 없습니다.)
+      현재 신청 가능한 조사지가 없습니다. (오늘 날짜가 조사 기간에 포함된
+      조사지가 없습니다.)
     </div>
 
     <div v-else-if="!survey" class="text-center text-danger py-5">
@@ -351,14 +349,23 @@ const onCancel = () => alert("취소(더미)");
                         :key="q.q_code"
                         class="d-flex align-items-center justify-content-between py-2 border-bottom border-light"
                       >
-                        <div class="d-flex align-items-start gap-2 flex-grow-1 me-3">
-                          <span class="text-muted text-sm" style="min-width: 20px">
+                        <div
+                          class="d-flex align-items-start gap-2 flex-grow-1 me-3"
+                        >
+                          <span
+                            class="text-muted text-sm"
+                            style="min-width: 20px"
+                          >
                             {{ q.q_no }}.
                           </span>
                           <span class="text-sm">{{ q.q_content }}</span>
                         </div>
-                        <div class="d-flex align-items-center gap-3 flex-shrink-0">
-                          <label class="mb-0 d-flex align-items-center gap-1 text-sm">
+                        <div
+                          class="d-flex align-items-center gap-3 flex-shrink-0"
+                        >
+                          <label
+                            class="mb-0 d-flex align-items-center gap-1 text-sm"
+                          >
                             <input
                               type="radio"
                               :name="q.q_code"
@@ -367,7 +374,9 @@ const onCancel = () => alert("취소(더미)");
                             />
                             예
                           </label>
-                          <label class="mb-0 d-flex align-items-center gap-1 text-sm">
+                          <label
+                            class="mb-0 d-flex align-items-center gap-1 text-sm"
+                          >
                             <input
                               type="radio"
                               :name="q.q_code"
