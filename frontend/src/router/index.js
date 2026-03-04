@@ -53,6 +53,16 @@ const routesList = [
         name: "review",
         component: () => import("@/views/counsel/Counsel.vue"),
       },
+      {
+        path: "mypage/manager",
+        name: "mypage-manager",
+        component: () => import("@/views/Y_ManagerInfo.vue"),
+      },
+      {
+        path: "mypage/organmanager",
+        name: "mypage-organmanager",
+        component: () => import("@/views/Y_OrganManagerInfo.vue"),
+      },
     ],
   },
   ...kjh,

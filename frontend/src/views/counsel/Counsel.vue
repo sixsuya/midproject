@@ -4,6 +4,10 @@ import { ref, onMounted, computed, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useTempStorage } from "@/composables/useTempStorage";
 import TempStorageModal from "@/components/TempStorageModal.vue";
+import { storeToRefs } from "pinia";
+import { useSupportStore } from "@/store/support";
+import SupportPlanDetail from "@/views/support/SupportPlanDetail.vue";
+import SupportResultDetail from "@/views/support/SupportResultDetail.vue";
 
 const route = useRoute();
 const supCode = computed(() => route.params.sup_code || "");
@@ -58,6 +62,45 @@ const showRightPanel = ref(false);
 
 // 좌측 탭: application(지원신청서) | plan(지원계획) | result(지원결과) — 기본 지원신청서
 const leftTab = ref("application");
+
+// ─── 지원계획 / 지원결과 (store 연동) ───
+const supportStore = useSupportStore();
+const { planData, resultData } = storeToRefs(supportStore);
+const planLoading = ref(false);
+const resultLoading = ref(false);
+const selectedPlanCode = ref(null); // 결과조회 클릭 시 어떤 계획의 결과인지 기억
+
+async function loadPlanTab() {
+  const code = supCode.value;
+  if (!code) return;
+  planLoading.value = true;
+  await supportStore.supportPlanDetail(code);
+  planLoading.value = false;
+}
+
+async function loadResultForPlan(planCode) {
+  const code = supCode.value;
+  if (!code) return;
+  selectedPlanCode.value = planCode;
+  resultLoading.value = true;
+  await supportStore.supportResultDetail(code, planCode);
+  resultLoading.value = false;
+  leftTab.value = "result";
+}
+
+// 탭 전환 시 데이터 로드
+watch(leftTab, (tab) => {
+  if (tab === "plan" && planData.value.length === 0) loadPlanTab();
+  if (tab === "result" && !selectedPlanCode.value && resultData.value.length === 0) {
+    const code = supCode.value;
+    if (code) {
+      resultLoading.value = true;
+      supportStore.supportResultDetail(code, null).finally(() => {
+        resultLoading.value = false;
+      });
+    }
+  }
+});
 
 // 지원신청서: survey_a 조사지 질문+답 (sup_code로 API 조회)
 const surveyAnswers = ref([]);
@@ -460,7 +503,7 @@ function formatCounselDate(val) {
               type="button"
               class="btn btn-link btn-sm p-0 me-3 text-decoration-none"
               :class="leftTab === 'plan' ? 'fw-bold text-dark' : 'text-muted'"
-              @click="leftTab = 'plan'"
+              @click="leftTab = 'plan'; loadPlanTab()"
             >
               지원계획
             </button>
@@ -619,19 +662,62 @@ function formatCounselDate(val) {
                   </div>
                 </div>
               </template>
-              <!-- 지원계획: placeholder -->
+              <!-- 지원계획 -->
               <template v-else-if="leftTab === 'plan'">
                 <h6 class="text-sm text-uppercase text-muted mb-3">지원계획</h6>
-                <p class="text-muted text-sm mb-0">
-                  지원계획 내용이 여기에 표시됩니다. (추후 연동)
-                </p>
+                <div v-if="planLoading" class="text-muted text-sm">로딩 중...</div>
+                <div v-else-if="planData.length === 0" class="text-muted text-sm">
+                  등록된 지원계획이 없습니다.
+                </div>
+                <template v-else>
+                  <SupportPlanDetail
+                    v-for="plan in planData"
+                    :key="plan.plan_code"
+                    :plan_code="plan.plan_code"
+                    :support_plan_title="plan.plan_goal"
+                    :support_plan_content="plan.plan_content"
+                    :start_time="plan.start_time"
+                    :end_time="plan.end_time"
+                    :plan_result="plan.plan_tf"
+                    :plan_date="plan.plan_date"
+                    :support_plan_comment="plan.plan_cmt"
+                    :support_plan_reject_comment="plan.plan_cmt"
+                    :support_plan_updday="plan.plan_updday"
+                    @result="loadResultForPlan"
+                    @approve="(pc) => supportStore.decidePlan(pc, 'e0_10', null).then(() => loadPlanTab())"
+                    @supple="(pc) => supportStore.decidePlan(pc, 'e0_80', null).then(() => loadPlanTab())"
+                    @reject="(pc) => supportStore.decidePlan(pc, 'e0_99', null).then(() => loadPlanTab())"
+                    @edit-complete="(payload) => supportStore.updatePlan(payload.planCode, { plan_goal: payload.title, plan_content: payload.content, start_date: payload.startDate, end_date: payload.endDate }).then(() => loadPlanTab())"
+                    @approval-request="(payload) => supportStore.updatePlan(payload.planCode, { plan_goal: payload.title, plan_content: payload.content }).then(() => loadPlanTab())"
+                    @end="(pc) => supportStore.endPlan(pc).then(() => loadPlanTab())"
+                  />
+                </template>
               </template>
-              <!-- 지원결과: placeholder -->
+              <!-- 지원결과 -->
               <template v-else>
                 <h6 class="text-sm text-uppercase text-muted mb-3">지원결과</h6>
-                <p class="text-muted text-sm mb-0">
-                  지원결과 내용이 여기에 표시됩니다. (추후 연동)
-                </p>
+                <div v-if="resultLoading" class="text-muted text-sm">로딩 중...</div>
+                <div v-else-if="resultData.length === 0" class="text-muted text-sm">
+                  등록된 지원결과가 없습니다.
+                </div>
+                <template v-else>
+                  <SupportResultDetail
+                    v-for="result in resultData"
+                    :key="result.result_code"
+                    :result_code="result.result_code"
+                    :result_title="result.result_title"
+                    :result_content="result.result_content"
+                    :result_date="result.result_date"
+                    :result_tf="result.result_tf"
+                    :result_cmt="result.result_cmt"
+                    :result_updday="result.result_updday"
+                    :result_result="result.result_tf"
+                    @approve="(rc) => supportStore.decideResult(rc, 'e0_10', null).then(() => supportStore.supportResultDetail(supCode.value, selectedPlanCode.value))"
+                    @supple="(rc) => supportStore.decideResult(rc, 'e0_80', null).then(() => supportStore.supportResultDetail(supCode.value, selectedPlanCode.value))"
+                    @reject="(rc) => supportStore.decideResult(rc, 'e0_99', null).then(() => supportStore.supportResultDetail(supCode.value, selectedPlanCode.value))"
+                    @edit-complete="(payload) => supportStore.updateResult(payload.resultCode, { result_title: payload.title, result_content: payload.content }).then(() => supportStore.supportResultDetail(supCode.value, selectedPlanCode.value))"
+                  />
+                </template>
               </template>
             </div>
           </div>

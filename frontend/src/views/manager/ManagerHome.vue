@@ -247,9 +247,8 @@ const viewResult = (row) => {
                     </td>
                     <td class="text-center">
                       <button
-                        class="btn btn-sm mb-0"
-                        :class="row.canPlanView ? 'btn-primary' : 'btn-secondary disabled'"
-                        @click="row.canPlanView && viewPlan(row)"
+                        class="btn btn-sm btn-primary mb-0"
+                        @click="viewPlan(row)"
                       >
                         보기
                       </button>
