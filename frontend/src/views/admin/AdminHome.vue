@@ -132,32 +132,81 @@ const onDeleteSelected = async () => {
 };
 
 /**
- * [1] 좌측 검색 상태값 (기관명)
+ * [1] 좌측 검색 입력값 (기관명)
  */
 const filters = ref({
+  orgName: "",
+});
+
+/** 검색 버튼/엔터 시에만 적용 (실시간 반영 안 함) */
+const appliedFilters = ref({
   orgName: "",
 });
 
 /** [2] 기관 목록 (DB organ 테이블 연동) */
 const rows = ref([]);
 
-/** [3] 검색/초기화 (클라이언트 필터) */
+/** [3] 검색: 버튼 클릭 또는 엔터 시에만 적용 */
 const onSearch = () => {
-  /* filteredRows가 filters.orgName으로 자동 필터 */
+  appliedFilters.value.orgName = filters.value.orgName;
 };
 const onReset = () => {
   filters.value.orgName = "";
+  appliedFilters.value.orgName = "";
 };
 
 /**
- * [4] 화면 필터링(computed)
+ * [4] 화면 필터링(computed) — appliedFilters 기준
  */
 const filteredRows = computed(() => {
-  const q = filters.value.orgName.trim();
+  const q = (appliedFilters.value.orgName || "").trim();
   if (!q) return rows.value;
 
   return rows.value.filter((r) => r.orgName.includes(q));
 });
+
+// ------- 기관 주소 입력(우편번호 API) 공통 유틸 -------
+const createZipCode = ref("");
+const createBaseAddress = ref("");
+const createDetailAddress = ref("");
+
+const editZipCode = ref("");
+const editBaseAddress = ref("");
+const editDetailAddress = ref("");
+
+const makeFullAddress = (zip, base, detail) => {
+  return `(${zip || ""}) ${base || ""} ${detail || ""}`
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
+const openPostcodeForCreate = () => {
+  new window.daum.Postcode({
+    oncomplete: function (data) {
+      createZipCode.value = data.zonecode;
+      createBaseAddress.value = data.roadAddress || data.jibunAddress;
+      createForm.value.organ_address = makeFullAddress(
+        createZipCode.value,
+        createBaseAddress.value,
+        createDetailAddress.value,
+      );
+    },
+  }).open();
+};
+
+const openPostcodeForEdit = () => {
+  new window.daum.Postcode({
+    oncomplete: function (data) {
+      editZipCode.value = data.zonecode;
+      editBaseAddress.value = data.roadAddress || data.jibunAddress;
+      editForm.value.organ_address = makeFullAddress(
+        editZipCode.value,
+        editBaseAddress.value,
+        editDetailAddress.value,
+      );
+    },
+  }).open();
+};
 
 /** 수정 모달 열기 */
 const showEditModal = ref(false);
@@ -174,6 +223,12 @@ const editForm = ref({
 const editSubmitting = ref(false);
 
 const openEditModal = (row) => {
+  // 기존 주소에서 우편번호/기본주소 대략 분리 (형식: "(우편번호) 주소 ...")
+  const addr = row.address || "";
+  const zipMatch = addr.match(/\((\d+)\)/);
+  const zip = zipMatch ? zipMatch[1] : "";
+  const rest = addr.replace(/^\(\d+\)\s*/, "");
+
   editForm.value = {
     organ_no: row.no,
     organ_name: row.orgName,
@@ -184,6 +239,9 @@ const openEditModal = (row) => {
     end_time: row.end_time || "2999-12-31",
     org_status: row.org_status || "c0_00",
   };
+  editZipCode.value = zip;
+  editBaseAddress.value = rest;
+  editDetailAddress.value = "";
   showEditModal.value = true;
 };
 
@@ -260,6 +318,9 @@ const createForm = ref({
 const createSubmitting = ref(false);
 
 const openCreateModal = () => {
+  createZipCode.value = "";
+  createBaseAddress.value = "";
+  createDetailAddress.value = "";
   createForm.value = {
     organ_no: "",
     organ_name: "",
@@ -349,7 +410,7 @@ const submitCreate = async () => {
             <h6 class="mb-0">검색</h6>
           </div>
 
-          <div class="card-body">
+          <form class="card-body" @submit.prevent="onSearch">
             <label class="form-label text-sm">기관명</label>
             <input
               v-model="filters.orgName"
@@ -359,14 +420,14 @@ const submitCreate = async () => {
             />
 
             <div class="mt-3 d-grid gap-2">
-              <button class="btn btn-primary mb-0" @click="onSearch">
+              <button type="submit" class="btn btn-primary mb-0">
                 검색
               </button>
-              <button class="btn btn-outline-secondary mb-0" @click="onReset">
+              <button type="button" class="btn btn-outline-secondary mb-0" @click="onReset">
                 초기화
               </button>
             </div>
-          </div>
+          </form>
         </div>
       </div>
 
@@ -557,11 +618,41 @@ const submitCreate = async () => {
               <label class="form-label"
                 >주소 <span class="text-danger">*</span></label
               >
+              <div class="d-flex gap-2 mb-2">
+                <input
+                  v-model="createZipCode"
+                  type="text"
+                  class="form-control form-control-sm"
+                  placeholder="우편번호"
+                  readonly
+                />
+                <button
+                  type="button"
+                  class="btn btn-outline-primary btn-sm"
+                  @click="openPostcodeForCreate"
+                >
+                  주소 검색
+                </button>
+              </div>
               <input
-                v-model="createForm.organ_address"
+                v-model="createBaseAddress"
+                type="text"
+                class="form-control form-control-sm mb-2"
+                placeholder="기본 주소"
+                readonly
+              />
+              <input
+                v-model="createDetailAddress"
                 type="text"
                 class="form-control form-control-sm"
-                placeholder="주소 입력"
+                placeholder="상세 주소를 입력해주세요"
+                @input="
+                  createForm.organ_address = makeFullAddress(
+                    createZipCode,
+                    createBaseAddress,
+                    createDetailAddress,
+                  )
+                "
               />
             </div>
             <div class="mb-3">
@@ -671,11 +762,41 @@ const submitCreate = async () => {
               <label class="form-label"
                 >주소 <span class="text-danger">*</span></label
               >
+              <div class="d-flex gap-2 mb-2">
+                <input
+                  v-model="editZipCode"
+                  type="text"
+                  class="form-control form-control-sm"
+                  placeholder="우편번호"
+                  readonly
+                />
+                <button
+                  type="button"
+                  class="btn btn-outline-primary btn-sm"
+                  @click="openPostcodeForEdit"
+                >
+                  주소 검색
+                </button>
+              </div>
               <input
-                v-model="editForm.organ_address"
+                v-model="editBaseAddress"
+                type="text"
+                class="form-control form-control-sm mb-2"
+                placeholder="기본 주소"
+                readonly
+              />
+              <input
+                v-model="editDetailAddress"
                 type="text"
                 class="form-control form-control-sm"
-                placeholder="주소 입력"
+                placeholder="상세 주소를 입력해주세요"
+                @input="
+                  editForm.organ_address = makeFullAddress(
+                    editZipCode,
+                    editBaseAddress,
+                    editDetailAddress,
+                  )
+                "
               />
             </div>
             <div class="mb-3">

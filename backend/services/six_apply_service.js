@@ -24,7 +24,7 @@ exports.getTargets = async () => {
   return dataRows;
 };
 
-// ✅ 보호자(gdn_no)별 지원대상자 목록 (review 화면)
+// ✅ 보호자(gdn_no)별 지원대상자 목록 (review 화면, 마이페이지)
 exports.getDsblPrsByGdnNo = async (gdnNo) => {
   const rows = await query("selectDsblPrsByGdnNo", [gdnNo]);
   return Array.isArray(rows) ? rows.filter((r) => r && r.mc_pn) : [];

@@ -25,6 +25,22 @@ const filters = ref({
   },
 });
 
+/** 검색 버튼/엔터 시에만 적용 */
+const appliedFilters = ref({
+  dateFrom: "",
+  dateTo: "",
+  targetName: "",
+  applicantName: "",
+  managerName: "",
+  stage: "전체",
+  progress: {
+    review: false,
+    approve: false,
+    reject: false,
+    done: false,
+  },
+});
+
 const rows = ref([]);
 const listLoading = ref(false);
 const listError = ref("");
@@ -91,7 +107,10 @@ async function loadManagerList() {
   }
 }
 
-const onSearch = () => loadManagerList();
+const onSearch = () => {
+  appliedFilters.value = JSON.parse(JSON.stringify(filters.value));
+  loadManagerList();
+};
 
 const onReset = () => {
   filters.value.dateFrom = "";
@@ -103,10 +122,11 @@ const onReset = () => {
   filters.value.progress.approve = false;
   filters.value.progress.reject = false;
   filters.value.progress.done = false;
+  appliedFilters.value = JSON.parse(JSON.stringify(filters.value));
 };
 
 const filteredRows = computed(() => {
-  const f = filters.value;
+  const f = appliedFilters.value;
   return rows.value.filter((r) => {
     if (
       f.dateFrom &&
@@ -167,7 +187,7 @@ const viewResult = (row) => {
               담당자: <strong>{{ loginMName }}</strong>
             </p>
           </div>
-          <div class="card-body">
+          <form class="card-body" @submit.prevent="onSearch">
             <label class="form-label text-sm">지원신청일</label>
             <div class="d-flex gap-2">
               <input
@@ -303,7 +323,7 @@ const viewResult = (row) => {
                 초기화
               </button>
             </div>
-          </div>
+          </form>
         </div>
       </div>
 
