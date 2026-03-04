@@ -16,8 +16,9 @@ const isOrganManagerRoute = computed(() =>
 const isManagerRoute = computed(() => route.path.startsWith("/manager"));
 
 // ✅ /admin 또는 /managermanage 이면 시스템관리자 영역 (담당자 관리 포함)
-const isAdminRoute = computed(() =>
-  route.path.startsWith("/admin") || route.path.startsWith("/managermanage"),
+const isAdminRoute = computed(
+  () =>
+    route.path.startsWith("/admin") || route.path.startsWith("/managermanage"),
 );
 
 // 로그아웃: Pinia 초기화 후 로그인 페이지로
@@ -26,9 +27,16 @@ const onLogout = () => {
   routes.push("/signin");
 };
 
-// ✅ 마이페이지 alert 처리
+// 권한별 마이페이지 이동
 const onMyPageClick = () => {
-  alert("마이페이지는 준비중입니다.");
+  const auth = authStore.user?.m_auth;
+  if (auth === "a0_30") {
+    routes.push("/mypage/manager");
+  } else if (auth === "a0_40") {
+    routes.push("/mypage/organmanager");
+  } else {
+    routes.push("/mypage");
+  }
 };
 
 // ✅ 인사말: Pinia 로그인 정보(m_nm, m_org) 사용
@@ -49,45 +57,50 @@ const greetingText = computed(() => {
   return `${name} 님 반갑습니다!`;
 });
 
-// ✅ 메뉴를 경로별로 구성 (admin: 기간 관리(홈), 담당자 관리 a0_30, 기관관리자 관리 a0_40, 설문 목록 / 마이페이지 숨김)
+// ✅ 권한별 첫화면 경로
+const homeRoute = computed(() => {
+  const auth = authStore.user?.m_auth;
+  if (auth === "a0_99") return "/admin";
+  if (auth === "a0_40") return "/organmanager";
+  if (auth === "a0_30") return "/manager";
+  if (auth === "a0_20") return "/applicant";
+  return "/";
+});
+
+// ✅ 메뉴를 경로별로 구성
 const navItems = computed(() => {
   if (isAdminRoute.value) {
-return [
-  { label: "기간 관리", to: "/admin", icon: "ni ni-calendar-grid-58" },
-  {
-    label: "담당자 관리",
-    to: "/admin/manager-control",
-    icon: "ni ni-single-02",
-  },
-  {
-    label: "기관관리자 관리",
-    to: "/admin/organ-managers",
-    icon: "ni ni-building",
-  },
-  {
-    label: "설문 목록",
-    to: "/admin/systemSurveyList",
-    icon: "ni ni-single-copy-04",
-  },
-];
+    return [
+      { label: "기간 관리", to: "/admin", icon: "ni ni-calendar-grid-58" },
+      {
+        label: "담당자 관리",
+        to: "/admin/manager-control",
+        icon: "ni ni-single-02",
+      },
+      {
+        label: "기관관리자 관리",
+        to: "/admin/organ-managers",
+        icon: "ni ni-building",
+      },
+      {
+        label: "설문 목록",
+        to: "/admin/systemSurveyList",
+        icon: "ni ni-single-copy-04",
+      },
+    ];
   }
   if (isOrganManagerRoute.value) {
     return [
       { label: "홈", to: "/organmanager", icon: "ni ni-shop" },
-      {
-        label: "담당자 관리",
-        to: "/managermanage",
-        icon: "ni ni-single-02",
-      },
+      { label: "담당자 관리", to: "/managermanage", icon: "ni ni-single-02" },
     ];
   }
-
   if (isManagerRoute.value) {
     return [{ label: "홈", to: "/manager", icon: "ni ni-shop" }];
   }
 
   return [
-    { label: "첫화면", to: "/", icon: "ni ni-shop" },
+    { label: "첫화면", to: homeRoute.value, icon: "ni ni-shop" },
     { label: "지원신청", to: "/apply", icon: "ni ni-single-copy-04" },
   ];
 });
@@ -102,7 +115,7 @@ return [
     <div class="container-fluid py-1 px-3">
       <!-- LEFT -->
       <div class="d-flex align-items-center gap-3">
-        <RouterLink class="navbar-brand m-0 fw-bold text-dark" to="/">
+        <RouterLink class="navbar-brand m-0 fw-bold text-dark" :to="homeRoute">
           발달장애인 지원 프로그램
         </RouterLink>
 
