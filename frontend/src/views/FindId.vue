@@ -92,6 +92,8 @@ const startTimer = () => {
       clearInterval(timerInterval);
       timerInterval = null;
       authMessage.value = "인증시간이 만료되었습니다. 다시 요청해주세요.";
+      // DB 인증 상태를 실패로 변경
+      axios.post("/api/verifi/expire", { email: email.value, purpose: "i0_20" }).catch(() => {});
     }
   }, 1000);
 };
@@ -120,7 +122,7 @@ const confirmVerificationCode = async () => {
   } catch (err) {
     authMessage.value =
       err.response?.data?.message ||
-      "인증번호가 일치하지 않습니다 인증 번호를 다시 발급받아주세요.";
+      "인증번호가 일치하지 않습니다. 인증 번호를 다시 발급받아주세요.";
     if (timerInterval) {
       clearInterval(timerInterval);
       timerInterval = null;

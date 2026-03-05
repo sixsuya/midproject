@@ -1,10 +1,11 @@
-// 회원 인증 관련 서비스
-const query = require("../database/mapper/mapper.js"); // mapper 가져오기
-// bcrypt 사용 시 필요
-// const bcrypt = require("bcrypt");
+// 회원 인증 관련 서비스 (비밀번호는 bcrypt로 암호화 저장·비교)
+const query = require("../database/mapper/mapper.js");
+const bcrypt = require("bcrypt");
+
+const SALT_ROUNDS = 10; // 해시 비용 (숫자 높을수록 안전, 느려짐. 학습용 10)
 
 const svc = {
-  // 회원 아이디로 조회 (로그인용)
+  // 회원 아이디로 조회 (로그인용, m_pw는 DB에 해시된 값)
   getUserById: async (m_id) => {
     if (!m_id) {
       console.error("m_id가 필요합니다.");
@@ -36,18 +37,17 @@ const svc = {
     }
   },
 
-  //  비밀번호 확인 함수
-  verifyPassword: (plainPw, hashedPw) => {
-    // 테스트용: 단순 문자열 비교
-    return plainPw === hashedPw;
-
-    // bcrypt 사용 시
-    // return await bcrypt.compare(plainPw, hashedPw);
+  // 비밀번호 확인: 사용자 입력(평문) vs DB 저장값(해시)
+  verifyPassword: async (plainPw, hashedPw) => {
+    if (!hashedPw) return false;
+    return bcrypt.compare(plainPw, hashedPw);
   },
 
-  // 회원가입 기능
+  // 회원가입: 평문 비밀번호를 bcrypt로 해시한 뒤 DB 저장
   signUpUser: async (userInfo) => {
     try {
+      const hashedPw = await bcrypt.hash(userInfo.m_pw, SALT_ROUNDS);
+
       const keys = [
         "m_id",
         "m_pw",
@@ -59,7 +59,10 @@ const svc = {
         "m_auth",
         "m_org",
       ];
-      const values = keys.map((k) => userInfo[k] || null);
+      const values = keys.map((k) => {
+        if (k === "m_pw") return hashedPw;
+        return userInfo[k] ?? null;
+      });
 
       const result = await query("signUpUser", values);
       return { success: true, insertId: result.insertId || null };

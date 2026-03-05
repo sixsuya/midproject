@@ -1,6 +1,4 @@
-// 각자 자신이 구현하는 기능에 맞게 파일을 추가하기, 대신 파일명에 어떤 기능의 라우터인지 알기 쉽게 영문으로 적어주는 걸 권장
-// export하고 같은 경로의 router.js에서 require부분에 해당 폴더 경로를 추가해주기
-// 라우터 통합은 조금 까다로우니까 router.js 파일 잘 확인하기
+// verification 테이블 기준: verifi_purpose i0_10/i0_20/i0_30, verifi_success h0_00/h0_10/h0_99
 
 const express = require("express");
 const router = express.Router();
@@ -8,8 +6,8 @@ const router = express.Router();
 const verifi = require("../services/svc.js");
 
 /* ============================
-   1. 회원가입 이메일 인증번호 발송
-   POST /verification/join
+   1. 회원가입 이메일 인증번호 발송 (verifi_purpose: i0_10)
+   POST /verifi/join
    body: { email }
 ============================ */
 router.post("/join", async (req, res) => {
@@ -30,8 +28,8 @@ router.post("/join", async (req, res) => {
 });
 
 /* ============================
-   2. 아이디 찾기 인증번호 발송
-   POST /verification/find-id
+   2. 아이디 찾기 인증번호 발송 (verifi_purpose: i0_20)
+   POST /verifi/find-id
    body: { name, email }
 ============================ */
 router.post("/find-id", async (req, res) => {
@@ -52,8 +50,8 @@ router.post("/find-id", async (req, res) => {
 });
 
 /* ============================
-   3. 비밀번호 재설정 인증번호 발송
-   POST /verification/reset-pw
+   3. 비밀번호 재설정 인증번호 발송 (verifi_purpose: i0_30)
+   POST /verifi/reset-pw
    body: { id, email }
 ============================ */
 router.post("/reset-pw", async (req, res) => {
@@ -74,8 +72,26 @@ router.post("/reset-pw", async (req, res) => {
 });
 
 /* ============================
-   4. 인증번호 검증
-   POST /verification/verify
+   3-1. 인증 만료 처리 (프론트 3분 만료 시 verifi_success → h0_99)
+   POST /verifi/expire
+   body: { email, purpose }  // purpose: i0_10 | i0_20 | i0_30
+============================ */
+router.post("/expire", async (req, res) => {
+    try {
+        const { email, purpose } = req.body;
+        if (!email || !purpose) {
+            return res.status(400).json({ message: "이메일과 용도(purpose)가 필요합니다." });
+        }
+        const result = await verifi.expirePendingVerification(email, purpose);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+/* ============================
+   4. 인증번호 검증 (성공 h0_10 / 실패·만료 h0_99)
+   POST /verifi/verify
    body: { email, code, purpose }
 ============================ */
 router.post("/verify", async (req, res) => {

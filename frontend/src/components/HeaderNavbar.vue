@@ -91,7 +91,7 @@ const fullMenuItems = [
   },
   {
     key: "period",
-    label: "기간 관리",
+    label: "기관 관리",
     to: "/admin",
     show: (auth) => auth === "a0_99",
   },
@@ -117,9 +117,7 @@ const showMypage = computed(
 
 // 현재 경로가 해당 메뉴의 to와 일치할 때만 음영(active)
 function isNavActive(itemTo) {
-  if (!itemTo) return false;
-  const path = route.path;
-  return path === itemTo || (itemTo !== "/" && path.startsWith(itemTo + "/"));
+  return route.path === itemTo;
 }
 </script>
 
@@ -188,8 +186,7 @@ function isNavActive(itemTo) {
   border-radius: 0.5rem;
 }
 
-.nav-link-active,
-.nav-link.router-link-active {
+.nav-link-active {
   font-weight: 700;
   background: rgba(0, 0, 0, 0.06);
 }

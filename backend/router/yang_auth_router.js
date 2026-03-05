@@ -17,8 +17,9 @@ router.post("/sign-in", async (req, res) => {
       return res.json({ success: false, message: "존재하지 않는 아이디" });
     }
 
-    // 단순 문자열 비교
-    if (user.m_pw !== m_pw) {
+    // bcrypt로 평문 입력과 DB 해시 비교
+    const isMatch = await authService.verifyPassword(m_pw, user.m_pw);
+    if (!isMatch) {
       return res.json({ success: false, message: "비밀번호 틀림" });
     }
 
