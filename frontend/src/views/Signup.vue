@@ -39,23 +39,48 @@ const userType = ref("일반회원");
 const org = ref("");
 
 const organList = ref([]);
+
+const openModal = (message) => {
+  modalMessage.value = message;
+  showModal.value = true;
+};
+
+const redirectAfterSuccess = ref(false);
+
+const handleModalConfirm = () => {
+  showModal.value = false;
+
+  if (redirectAfterSuccess.value) {
+    redirectAfterSuccess.value = false;
+    router.push("/signin");
+  }
+};
+
 // 주소(도시명: 대구/부산 등) 기반 기관 필터링용
 const filteredOrganList = computed(() => {
   // 회원이 선택한 주소에서 도시명 추출
   const userCity = extractCityFromAddress(address.value);
-
-  // 아직 주소가 없거나 도시명을 못 뽑으면 전체 목록 노출
+  //  주소 없으면 전체 기관
   if (!userCity) {
     return organList.value;
   }
 
-  return organList.value.filter((orgItem) => {
+  // 같은 도시 기관만 필터링
+  const matchedList = organList.value.filter((orgItem) => {
     const orgAddr = orgItem?.organ_address;
     if (typeof orgAddr !== "string") return false;
 
     const orgCity = extractCityFromAddress(orgAddr);
     return orgCity === userCity;
   });
+
+  // 같은 도시 기관이 없으면 전체 기관 반환
+  if (matchedList.length === 0) {
+    return organList.value;
+  }
+
+  // 같은 도시 기관이 있으면 필터된 목록 반환
+  return matchedList;
 });
 
 const authCodeMap = {
@@ -68,6 +93,14 @@ const showModal = ref(false);
 const modalMessage = ref("");
 const countdown = ref(0);
 let timerInterval = null;
+
+// 타이머 정리 함수
+const stopTimer = () => {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+};
 
 // 이메일 인증 버튼 라벨: 인증완료 → 발송중 → (발송 후 만료/실패 시) 재인증 → 이메일 인증
 const emailButtonLabel = computed(() => {
@@ -138,7 +171,7 @@ onBeforeUnmount(() => {
   store.state.showSidenav = true;
   store.state.showFooter = true;
   body.classList.add("bg-gray-100");
-  if (timerInterval) clearInterval(timerInterval);
+  stopTimer();
 });
 
 // --- [검증 로직] ---
@@ -223,20 +256,35 @@ const sendEmailVerification = async () => {
 };
 // 인증 타이머
 const startTimer = () => {
-  countdown.value = 180; // 3분
+  stopTimer(); // 기존 타이머 정리
 
-  if (timerInterval) clearInterval(timerInterval);
+  countdown.value = 180;
 
   timerInterval = setInterval(() => {
     if (countdown.value > 0) {
       countdown.value--;
     } else {
-      clearInterval(timerInterval);
-      timerInterval = null;
+      stopTimer();
       authMessage.value = "인증시간이 만료되었습니다. 다시 요청해주세요.";
       isEmailVerified.value = false;
+      // DB 인증 상태를 실패(i0_99)로 변경
+      axios.post("/api/verifi/expire", { email: email.value, purpose: "i0_10" }).catch(() => {});
     }
   }, 1000);
+};
+
+// 이메일 입력 변경 시 인증 상태 초기화
+const resetEmailVerificationState = () => {
+  stopTimer();
+
+  emailErrorMessage.value = "";
+  isEmailVerified.value = false;
+  showAuthSection.value = false;
+  authCodeInput.value = "";
+  authMessage.value = "";
+  countdown.value = 0;
+
+  stopTimer();
 };
 
 // 인증번호 확인
@@ -256,19 +304,13 @@ const confirmAuthCode = async () => {
     authMessage.value = res.data.message || "인증이 완료되었습니다.";
     isEmailVerified.value = true;
 
-    if (timerInterval) {
-      clearInterval(timerInterval);
-      timerInterval = null;
-    }
+    stopTimer();
   } catch (err) {
     authMessage.value =
       err.response?.data?.message ||
-      "인증번호가 일치하지 않습니다 인증 번호를 다시 발급받아주세요.";
-    // 인증 실패 시 타이머 종료 → 재인증 버튼 활성화
-    if (timerInterval) {
-      clearInterval(timerInterval);
-      timerInterval = null;
-    }
+      "인증번호가 일치하지 않습니다. 인증 번호를 다시 발급받아주세요.";
+    // 인증 실패 시 타이머 종료 → 재인증 버튼 활성화 (백엔드에서 이미 실패 상태로 DB 업데이트됨)
+    stopTimer();
     countdown.value = 0;
   } finally {
     isVerifying.value = false;
@@ -296,7 +338,7 @@ const handleSignUp = async () => {
     return;
   }
   if (password.value !== confirmPassword.value) {
-    alert("비밀번호 확인 요망");
+    openModal("비밀번호 확인 요망");
     return;
   }
 
@@ -319,15 +361,14 @@ const handleSignUp = async () => {
     const res = await axios.post("/api/auth/sign-up", userInfo);
 
     if (res.data.success) {
-      alert("회원가입 완료! 로그인 페이지로 이동합니다.");
-      // 로그인 페이지 이동 등
-      router.push("/signin");
+      redirectAfterSuccess.value = true;
+      openModal("회원가입 완료! 가입 승인을 기다려주세요.");
     } else {
-      alert(res.data.message);
+      openModal(res.data.message || "회원가입에 실패했습니다.");
     }
   } catch (err) {
     console.error(err);
-    alert("회원가입 실패");
+    openModal("회원가입 실패");
   }
 };
 const fetchInstitutionsByZip = async (zip) => {
@@ -511,18 +552,7 @@ const searchAddress = () => {
                       placeholder="이메일"
                       size="lg"
                       class="rounded-0 flex-grow-1 mb-0"
-                      @input="
-                        emailErrorMessage = '';
-                        isEmailVerified = false;
-                        showAuthSection = false;
-                        authCodeInput = '';
-                        authMessage = '';
-                        countdown = 0;
-                        if (timerInterval) {
-                          clearInterval(timerInterval);
-                          timerInterval = null;
-                        }
-                      "
+                      @input="resetEmailVerificationState"
                     />
                     <argon-button
                       type="button"
@@ -726,7 +756,7 @@ const searchAddress = () => {
             color="success"
             variant="gradient"
             class="rounded-0 px-5"
-            @click="showModal = false"
+            @click="handleModalConfirm"
             >확인</argon-button
           >
         </div>

@@ -26,7 +26,7 @@ const routesList = [
       {
         path: "",
         name: "home",
-        component: () => import("@/views/MainContent.vue"),
+        component: () => import("@/views/Signin.vue"),
       },
       {
         path: "apply",

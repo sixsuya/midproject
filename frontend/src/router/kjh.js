@@ -6,7 +6,7 @@ export default [
   {
     path: "",
     name: "home",
-    component: () => import("@/views/MainContent.vue"),
+    component: () => import("@/views/Signin.vue"),
   },
   {
     path: "/support-plan/:supportCode",
