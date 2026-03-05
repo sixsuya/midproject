@@ -129,7 +129,12 @@ const reasonConfirmModal = ref({
   reasonLabel: "사유",
   context: null, // { type: 'plan'|'result'|'rank', decision: 'e0_80'|'e0_99', planCode?, resultCode?, reqCode? }
 });
-function openReasonConfirmModal(context, title, message, reasonPlaceholder = "사유를 입력해 주세요.") {
+function openReasonConfirmModal(
+  context,
+  title,
+  message,
+  reasonPlaceholder = "사유를 입력해 주세요.",
+) {
   reasonConfirmModal.value = {
     show: true,
     title,
@@ -155,10 +160,17 @@ async function onReasonConfirmModalConfirm(reason) {
   closeReasonConfirmModal();
 
   if (type === "plan" && planCode) {
-    const res = await supportStore.decidePlan(planCode, decision, reason ?? null);
+    const res = await supportStore.decidePlan(
+      planCode,
+      decision,
+      reason ?? null,
+    );
     if (res?.retCode === "Success") {
       await loadPlanTab();
-      const p = getAlertPreset(decision === "e0_80" ? "suppleComplete" : "rejectComplete", "plan");
+      const p = getAlertPreset(
+        decision === "e0_80" ? "suppleComplete" : "rejectComplete",
+        "plan",
+      );
       showAlert(p.type, p.title, res.retMsg ?? p.message);
     } else if (res != null) {
       showAlert("error", "알림", res.retMsg ?? "처리에 실패했습니다.");
@@ -166,10 +178,20 @@ async function onReasonConfirmModalConfirm(reason) {
     return;
   }
   if (type === "result" && resultCode) {
-    const res = await supportStore.decideResult(resultCode, decision, reason ?? null);
+    const res = await supportStore.decideResult(
+      resultCode,
+      decision,
+      reason ?? null,
+    );
     if (res?.retCode === "Success") {
-      await supportStore.supportResultDetail(code, selectedPlanCode.value ?? undefined);
-      const p = getAlertPreset(decision === "e0_80" ? "suppleComplete" : "rejectComplete", "result");
+      await supportStore.supportResultDetail(
+        code,
+        selectedPlanCode.value ?? undefined,
+      );
+      const p = getAlertPreset(
+        decision === "e0_80" ? "suppleComplete" : "rejectComplete",
+        "result",
+      );
       showAlert(p.type, p.title, res.retMsg ?? p.message);
     } else if (res != null) {
       showAlert("error", "알림", res.retMsg ?? "처리에 실패했습니다.");
@@ -189,7 +211,11 @@ async function onReasonConfirmModalConfirm(reason) {
           showAlert("supple", "알림", "보완 처리가 완료되었습니다.");
           await loadRankTab();
         } else {
-          showAlert("error", "알림", json?.retMsg ?? "보완 처리에 실패했습니다.");
+          showAlert(
+            "error",
+            "알림",
+            json?.retMsg ?? "보완 처리에 실패했습니다.",
+          );
         }
       } else {
         const res = await fetch("/api/rank/decide", {
@@ -1206,7 +1232,8 @@ const {
 });
 
 async function saveCounsel(payload) {
-  const data = payload && typeof payload === "object" ? payload : counselForm.value;
+  const data =
+    payload && typeof payload === "object" ? payload : counselForm.value;
   if (!data?.csl_title?.trim()) {
     showAlert("error", "알림", "제목을 입력해주세요.");
     return;
@@ -1316,7 +1343,6 @@ function onReceiptAccept() {
 function onReceiptReject() {
   updateReqYn("e0_99");
 }
-
 </script>
 
 <template>
@@ -1464,17 +1490,38 @@ function onReceiptReject() {
                 @cancel-add="openPlanCancelModal('add')"
                 @result="loadResultForPlan"
                 @open-supple-history="openPlanSuppleHistory"
-                @approve="(pc) => supportStore.decidePlan(pc, 'e0_10', null).then(() => loadPlanTab())"
-                @supple="(pc) => supportStore.decidePlan(pc, 'e0_80', null).then(() => loadPlanTab())"
-                @reject="(pc) => supportStore.decidePlan(pc, 'e0_99', null).then(() => loadPlanTab())"
+                @approve="
+                  (pc) =>
+                    supportStore
+                      .decidePlan(pc, 'e0_10', null)
+                      .then(() => loadPlanTab())
+                "
+                @supple="
+                  (pc) =>
+                    supportStore
+                      .decidePlan(pc, 'e0_80', null)
+                      .then(() => loadPlanTab())
+                "
+                @reject="
+                  (pc) =>
+                    supportStore
+                      .decidePlan(pc, 'e0_99', null)
+                      .then(() => loadPlanTab())
+                "
                 @edit-complete="onPlanEditComplete"
                 @approval-request="onPlanApprovalRequest"
-                @request-cancel="(planCode) => openPlanCancelModal('edit', planCode)"
+                @request-cancel="
+                  (planCode) => openPlanCancelModal('edit', planCode)
+                "
                 @cancel-done="clearCancelRequestPlan"
-                @end="(pc) => supportStore.endPlan(pc).then(() => loadPlanTab())"
+                @end="
+                  (pc) => supportStore.endPlan(pc).then(() => loadPlanTab())
+                "
                 @temp-save-detail="onTempSaveFromDetailPlan"
                 @history="openPlanHistory"
-                @alert="(p) => showAlert(p.type ?? 'error', '알림', p.message ?? '')"
+                @alert="
+                  (p) => showAlert(p.type ?? 'error', '알림', p.message ?? '')
+                "
               />
               <!-- 지원결과 -->
               <CounselResultTab
@@ -1482,7 +1529,9 @@ function onReceiptReject() {
                 ref="resultTabRef"
                 :show-add-result-form="showAddResultForm"
                 :add-result-form="addResultForm"
-                @update:add-result-form="(obj) => Object.assign(addResultForm, obj)"
+                @update:add-result-form="
+                  (obj) => Object.assign(addResultForm, obj)
+                "
                 :add-result-file-names="addResultFileNames"
                 :result-loading="resultLoading"
                 :result-data="resultData"
@@ -1496,16 +1545,50 @@ function onReceiptReject() {
                 @approval-request-add="onResultApprovalRequestFromAdd"
                 @cancel-add="openResultCancelModal('add')"
                 @open-supple-history="openResultSuppleHistory"
-                @approve="(rc) => supportStore.decideResult(rc, 'e0_10', null).then(() => supportStore.supportResultDetail(supCode.value, selectedPlanCode.value))"
-                @supple="(rc) => supportStore.decideResult(rc, 'e0_80', null).then(() => supportStore.supportResultDetail(supCode.value, selectedPlanCode.value))"
-                @reject="(rc) => supportStore.decideResult(rc, 'e0_99', null).then(() => supportStore.supportResultDetail(supCode.value, selectedPlanCode.value))"
+                @approve="
+                  (rc) =>
+                    supportStore
+                      .decideResult(rc, 'e0_10', null)
+                      .then(() =>
+                        supportStore.supportResultDetail(
+                          supCode.value,
+                          selectedPlanCode.value,
+                        ),
+                      )
+                "
+                @supple="
+                  (rc) =>
+                    supportStore
+                      .decideResult(rc, 'e0_80', null)
+                      .then(() =>
+                        supportStore.supportResultDetail(
+                          supCode.value,
+                          selectedPlanCode.value,
+                        ),
+                      )
+                "
+                @reject="
+                  (rc) =>
+                    supportStore
+                      .decideResult(rc, 'e0_99', null)
+                      .then(() =>
+                        supportStore.supportResultDetail(
+                          supCode.value,
+                          selectedPlanCode.value,
+                        ),
+                      )
+                "
                 @edit-complete="onResultEditComplete"
                 @approval-request="onResultApprovalRequest"
-                @request-cancel="(resultCode) => openResultCancelModal('edit', resultCode)"
+                @request-cancel="
+                  (resultCode) => openResultCancelModal('edit', resultCode)
+                "
                 @cancel-done="clearCancelRequestResult"
                 @temp-save-detail="onTempSaveFromDetailResult"
                 @history="openResultHistory"
-                @alert="(p) => showAlert(p.type ?? 'error', '알림', p.message ?? '')"
+                @alert="
+                  (p) => showAlert(p.type ?? 'error', '알림', p.message ?? '')
+                "
               />
             </div>
           </div>
@@ -1521,7 +1604,9 @@ function onReceiptReject() {
             :writer-list-loading="writerListLoading"
             :show-form="showForm"
             :counsel-form="counselForm"
-            @update:counsel-form="(obj) => Object.assign(counselForm.value || {}, obj)"
+            @update:counsel-form="
+              (obj) => Object.assign(counselForm.value || {}, obj)
+            "
             :counsel-form-saving="counselFormSaving"
             :temp-save-loading="tempSaveLoading"
             :temp-storage-list-loading="tempStorageListLoading"
