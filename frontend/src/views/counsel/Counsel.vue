@@ -13,6 +13,13 @@ import SupportResultDetail from "@/views/support/SupportResultDetail.vue";
 import PlanAdd from "@/views/support/PlanAdd.vue";
 import ResultAdd from "@/views/support/ResultAdd.vue";
 import RankDetail from "@/views/rank/RankDetail.vue";
+import CounselApplicantInfo from "@/views/counsel/CounselApplicantInfo.vue";
+import CounselReceiptTab from "@/views/counsel/CounselReceiptTab.vue";
+import CounselApplicationTab from "@/views/counsel/CounselApplicationTab.vue";
+import CounselRankTab from "@/views/counsel/CounselRankTab.vue";
+import CounselPlanTab from "@/views/counsel/CounselPlanTab.vue";
+import CounselResultTab from "@/views/counsel/CounselResultTab.vue";
+import CounselRightPanel from "@/views/counsel/CounselRightPanel.vue";
 import ConfirmModal from "@/views/modal/ConfirmModal.vue";
 import AlertModal from "@/views/modal/AlertModal.vue";
 import HistoryModal from "@/views/modal/HistoryModal.vue";
@@ -27,17 +34,6 @@ const support = ref(null);
 const dsblPrs = ref(null);
 const dsblLoading = ref(false);
 const dsblError = ref(null);
-
-function formatDate(val) {
-  if (!val) return "";
-  const d = new Date(val);
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function genderLabel(code) {
-  const m = { b0_00: "남자", b0_10: "여자" };
-  return m[code] ?? code ?? "";
-}
 
 async function loadSupport() {
   const code = supCode.value;
@@ -75,8 +71,14 @@ onMounted(() => {
 // 우측 상담내역 패널 표시 여부 — URL 진입 시 숨김, '상담내역 보기' 클릭 시 표시
 const showRightPanel = ref(false);
 
-// 좌측 탭: application(지원신청서) | rank(우선순위) | plan(지원계획) | result(지원결과) — 기본 지원신청서
-const leftTab = ref("application");
+// 좌측 탭: application(지원신청서) | rank(우선순위) | plan(지원계획) | result(지원결과)
+// - 기본은 지원신청서, 쿼리스트링 tab 이 있을 경우 해당 탭으로 시작
+const initialLeftTab = computed(() => {
+  const t = route.query.tab;
+  const allowed = ["application", "receipt", "rank", "plan", "result"];
+  return allowed.includes(t) ? t : "application";
+});
+const leftTab = ref(initialLeftTab.value);
 
 // ─── 지원계획 / 지원결과 (store 연동) ───
 const authStore = useAuthStore();
@@ -300,11 +302,13 @@ async function uploadFilesToServer(files, filePath, categoryPk, uploadMem) {
   }
 }
 
+const planTabRef = ref(null);
 const planDetailRefs = {};
 function setPlanDetailRef(planCode, el) {
   if (el) planDetailRefs[planCode] = el;
   else delete planDetailRefs[planCode];
 }
+const resultTabRef = ref(null);
 const resultDetailRefs = {};
 function setResultDetailRef(resultCode, el) {
   if (el) resultDetailRefs[resultCode] = el;
@@ -947,6 +951,18 @@ watch(leftTab, (tab) => {
   }
 });
 
+// 외부에서 쿼리스트링 tab 변경 시 탭 동기화
+watch(
+  () => route.query.tab,
+  (val) => {
+    if (!val) return;
+    const allowed = ["application", "receipt", "rank", "plan", "result"];
+    if (allowed.includes(val)) {
+      leftTab.value = val;
+    }
+  },
+);
+
 // 지원신청서: survey_a 조사지 질문+답 (sup_code로 API 조회)
 const surveyAnswers = ref([]);
 const surveyAnswersLoading = ref(false);
@@ -1189,16 +1205,17 @@ const {
   onAlert: showAlert,
 });
 
-async function saveCounsel() {
-  if (!counselForm.value.csl_title?.trim()) {
+async function saveCounsel(payload) {
+  const data = payload && typeof payload === "object" ? payload : counselForm.value;
+  if (!data?.csl_title?.trim()) {
     showAlert("error", "알림", "제목을 입력해주세요.");
     return;
   }
-  if (!counselForm.value.counselDate) {
+  if (!data?.counselDate) {
     showAlert("error", "알림", "상담일을 선택해주세요.");
     return;
   }
-  if (!counselForm.value.csl_writer?.trim()) {
+  if (!data?.csl_writer?.trim()) {
     showAlert("error", "알림", "작성자를 선택해주세요.");
     return;
   }
@@ -1215,11 +1232,11 @@ async function saveCounsel() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          csl_title: counselForm.value.csl_title.trim(),
-          csl_date: counselForm.value.counselDate,
-          csl_content: counselForm.value.csl_content || "",
-          csl_writer: counselForm.value.csl_writer || undefined,
-          csl_name: counselForm.value.csl_writer || undefined,
+          csl_title: data.csl_title.trim(),
+          csl_date: data.counselDate,
+          csl_content: data.csl_content || "",
+          csl_writer: data.csl_writer || undefined,
+          csl_name: data.csl_writer || undefined,
         }),
       },
     );
@@ -1300,16 +1317,6 @@ function onReceiptReject() {
   updateReqYn("e0_99");
 }
 
-const contentPreview = (text, max = 30) => {
-  if (!text) return "";
-  return text.length <= max ? text : text.slice(0, max) + "...";
-};
-
-function formatCounselDate(val) {
-  if (!val) return "";
-  const d = new Date(val);
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
-}
 </script>
 
 <template>
@@ -1319,79 +1326,14 @@ function formatCounselDate(val) {
         <!-- ─── 좌측: 지원자 정보 + 지원신청서/지원계획/지원결과 (우측 표시 시 col-lg-5) ─── -->
         <div :class="showRightPanel ? 'col-lg-5' : 'col-12'">
           <!-- 상단: 지원자 정보 -->
-          <div class="card shadow-sm mb-3">
-            <div
-              class="card-header py-2 d-flex align-items-center justify-content-between"
-            >
-              <h6 class="mb-0">지원대상자 정보</h6>
-              <button
-                type="button"
-                class="btn btn-sm"
-                :class="
-                  showRightPanel ? 'btn-outline-secondary' : 'btn-success'
-                "
-                @click="toggleRightPanel"
-              >
-                {{ showRightPanel ? "상담내역 닫기" : "상담내역 보기" }}
-              </button>
-            </div>
-            <div class="card-body pt-2">
-              <p v-if="dsblLoading" class="text-muted text-sm mb-0">
-                로딩 중...
-              </p>
-              <p v-else-if="dsblError" class="text-danger text-sm mb-0">
-                {{ dsblError }}
-              </p>
-              <template v-else>
-                <div class="mb-3">
-                  <label class="form-label text-sm mb-1">성명</label>
-                  <input
-                    :value="dsblPrs?.mc_nm ?? ''"
-                    type="text"
-                    class="form-control form-control-sm bg-light"
-                    readonly
-                  />
-                </div>
-                <template v-if="dsblPrs">
-                  <ul class="list-unstyled text-sm mb-0">
-                    <li class="d-flex mb-1">
-                      <span class="text-muted me-2" style="min-width: 100px"
-                        >생년월일</span
-                      >
-                      <span>{{ formatDate(dsblPrs.mc_bd) }}</span>
-                    </li>
-                    <li class="d-flex mb-1">
-                      <span class="text-muted me-2" style="min-width: 100px"
-                        >성별</span
-                      >
-                      <span>{{ genderLabel(dsblPrs.mc_gender) }}</span>
-                    </li>
-                    <li class="d-flex mb-1">
-                      <span class="text-muted me-2" style="min-width: 100px"
-                        >주소</span
-                      >
-                      <span>{{ dsblPrs.mc_address }}</span>
-                    </li>
-                    <li class="d-flex mb-1">
-                      <span class="text-muted me-2" style="min-width: 100px"
-                        >유형</span
-                      >
-                      <span>{{ dsblPrs.mc_type }}</span>
-                    </li>
-                    <li class="d-flex mb-1">
-                      <span class="text-muted me-2" style="min-width: 100px"
-                        >등록일</span
-                      >
-                      <span>{{ formatDate(dsblPrs.mc_submitdate) }}</span>
-                    </li>
-                  </ul>
-                </template>
-                <p v-else class="text-muted text-sm mb-0">
-                  지원 정보가 없습니다.
-                </p>
-              </template>
-            </div>
-          </div>
+          <CounselApplicantInfo
+            :support="support"
+            :dsbl-prs="dsblPrs"
+            :dsbl-loading="dsblLoading"
+            :dsbl-error="dsblError"
+            :show-right-panel="showRightPanel"
+            @toggle-panel="toggleRightPanel"
+          />
 
           <!-- 이동 링크: 지원신청서 | 우선순위 | 지원계획 | 지원결과 -->
           <div class="mb-2">
@@ -1459,721 +1401,140 @@ function formatCounselDate(val) {
           <!-- 탭별 컨텐츠 -->
           <div class="card shadow-sm">
             <div class="card-body">
-              <!-- 지원신청서: survey_a 질문+답 더미 -->
-              <template v-if="leftTab === 'application'">
-                <div
-                  class="d-flex align-items-center justify-content-between mb-3"
-                >
-                  <h6 class="text-sm text-uppercase text-muted mb-0">
-                    지원신청서 (조사지 응답)
-                  </h6>
-                  <span v-if="support?.sup_day" class="text-muted text-sm">
-                    작성일 {{ formatDate(support.sup_day) }}
-                  </span>
-                </div>
-                <p v-if="surveyAnswersLoading" class="text-muted text-sm mb-0">
-                  로딩 중...
-                </p>
-                <p
-                  v-else-if="surveyAnswersError"
-                  class="text-danger text-sm mb-0"
-                >
-                  {{ surveyAnswersError }}
-                </p>
-                <div
-                  v-else-if="surveyAnswers.length === 0"
-                  class="text-muted text-sm mb-0"
-                >
-                  등록된 조사지 답변이 없습니다.
-                </div>
-                <div v-else class="counsel-survey-list">
-                  <template
-                    v-for="(majorGrp, mIdx) in surveyAnswersGrouped"
-                    :key="mIdx"
-                  >
-                    <div class="mb-3">
-                      <div class="text-dark fw-semibold text-sm mb-2">
-                        {{ majorGrp.major_name }}
-                      </div>
-                      <template
-                        v-for="(subGrp, sIdx) in majorGrp.subs"
-                        :key="sIdx"
-                      >
-                        <div class="ms-2 mb-2">
-                          <div class="text-muted text-xs fw-medium mb-1">
-                            {{ subGrp.sub_name }}
-                          </div>
-                          <div
-                            v-for="(row, rIdx) in subGrp.items"
-                            :key="row.a_code || rIdx"
-                            class="border-bottom border-light pb-2 mb-2 counsel-survey-item ms-2"
-                          >
-                            <div class="text-muted text-xs mb-1">
-                              {{ row.q_no }}.
-                            </div>
-                            <div class="fw-semibold text-sm mb-1">
-                              {{ row.q_content }}
-                            </div>
-                            <div v-if="!applicationEditMode" class="text-sm">
-                              {{ row.a_content }}
-                            </div>
-                            <!-- q_type별 수정 입력: f0_00 텍스트(textarea), f0_10 체크박스, f0_20 라디오 -->
-                            <template v-else>
-                              <textarea
-                                v-if="row.q_type === 'f0_00'"
-                                v-model="row.a_content"
-                                class="form-control form-control-sm mt-1"
-                                rows="3"
-                                placeholder="답변 입력"
-                              />
-                              <div
-                                v-else-if="row.q_type === 'f0_10'"
-                                class="mt-1 d-flex align-items-center gap-3"
-                              >
-                                <label
-                                  class="mb-0 d-flex align-items-center gap-1 text-sm"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    :checked="row.a_content === 'Y'"
-                                    @change="
-                                      row.a_content = $event.target.checked
-                                        ? 'Y'
-                                        : 'N'
-                                    "
-                                  />
-                                  예
-                                </label>
-                                <span class="text-muted text-sm"
-                                  >(미체크 시 아니오)</span
-                                >
-                              </div>
-                              <div
-                                v-else-if="row.q_type === 'f0_20'"
-                                class="mt-1 d-flex align-items-center gap-3"
-                              >
-                                <label
-                                  class="mb-0 d-flex align-items-center gap-1 text-sm"
-                                >
-                                  <input
-                                    type="radio"
-                                    :name="row.a_code"
-                                    value="Y"
-                                    v-model="row.a_content"
-                                  />
-                                  예
-                                </label>
-                                <label
-                                  class="mb-0 d-flex align-items-center gap-1 text-sm"
-                                >
-                                  <input
-                                    type="radio"
-                                    :name="row.a_code"
-                                    value="N"
-                                    v-model="row.a_content"
-                                  />
-                                  아니오
-                                </label>
-                              </div>
-                              <input
-                                v-else
-                                v-model="row.a_content"
-                                type="text"
-                                class="form-control form-control-sm mt-1"
-                                placeholder="답변 입력"
-                              />
-                            </template>
-                          </div>
-                        </div>
-                      </template>
-                    </div>
-                  </template>
-                </div>
-                <div
-                  class="mt-3 pt-2 border-top d-flex align-items-center justify-content-end flex-wrap gap-2"
-                >
-                  <div
-                    v-if="!applicationEditMode && isApplicant"
-                    class="d-flex gap-2"
-                  >
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-primary"
-                      @click="startApplicationEdit"
-                    >
-                      수정하기
-                    </button>
-                  </div>
-                  <div
-                    v-else-if="applicationEditMode && isApplicant"
-                    class="d-flex gap-2"
-                  >
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-primary"
-                      :disabled="applicationSaveLoading"
-                      @click="saveApplicationEdit"
-                    >
-                      {{ applicationSaveLoading ? "저장 중..." : "저장" }}
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-secondary"
-                      :disabled="applicationSaveLoading"
-                      @click="cancelApplicationEdit"
-                    >
-                      취소
-                    </button>
-                  </div>
-                </div>
-              </template>
+              <!-- 지원신청서 -->
+              <CounselApplicationTab
+                v-if="leftTab === 'application'"
+                :support="support"
+                :survey-answers-grouped="surveyAnswersGrouped"
+                :survey-answers-loading="surveyAnswersLoading"
+                :survey-answers-error="surveyAnswersError"
+                :application-edit-mode="applicationEditMode"
+                :application-save-loading="applicationSaveLoading"
+                :is-applicant="isApplicant"
+                @start-edit="startApplicationEdit"
+                @save="saveApplicationEdit"
+                @cancel="cancelApplicationEdit"
+              />
 
-              <!-- 신청수리 (기관담당자) -->
-              <template v-else-if="leftTab === 'receipt'">
-                <div
-                  class="d-flex align-items-center justify-content-between mb-3"
-                >
-                  <h6 class="text-sm text-uppercase text-muted mb-0">
-                    신청수리
-                  </h6>
-                  <span class="text-sm text-muted">
-                    상담일지 {{ counselList.length }}건 / 현재 상태:
-                    {{ support?.req_name || support?.req_yn || "-" }}
-                  </span>
-                </div>
-                <p v-if="!hasCounsel" class="text-muted text-sm mb-0">
-                  상담일지가 한 건 이상 존재할 때 신청수리를 진행할 수 있습니다.
-                </p>
-                <div v-else class="text-sm">
-                  <p class="text-muted">
-                    상담내역을 검토한 뒤, 이 신청을 접수하거나 반려할 수
-                    있습니다.
-                  </p>
-                  <div class="d-flex gap-2 mt-3">
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-success"
-                      @click="onReceiptAccept"
-                    >
-                      신청 접수
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-danger"
-                      @click="onReceiptReject"
-                    >
-                      신청 반려
-                    </button>
-                  </div>
-                </div>
-              </template>
+              <!-- 신청접수 -->
+              <CounselReceiptTab
+                v-else-if="leftTab === 'receipt'"
+                :has-counsel="hasCounsel"
+                :support="support"
+                :counsel-list="counselList"
+                @accept="onReceiptAccept"
+                @reject="onReceiptReject"
+              />
               <!-- 우선순위 -->
-              <template v-else-if="leftTab === 'rank'">
-                <div
-                  class="d-flex align-items-center justify-content-between mb-3"
-                >
-                  <h6 class="text-sm text-uppercase text-muted mb-0">
-                    우선순위
-                  </h6>
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-secondary"
-                    @click="loadRankTab"
-                  >
-                    새로고침
-                  </button>
-                </div>
-                <p v-if="rankLoading" class="text-muted text-sm mb-0">
-                  로딩 중...
-                </p>
-                <p v-else-if="!rankData" class="text-muted text-sm mb-0">
-                  우선순위 정보가 없습니다.
-                </p>
-                <RankDetail
-                  v-else
-                  :rank_code="rankCodeLocal"
-                  :rank_cmt="rankCmtLocal"
-                  :priority="rankData.priority ?? ''"
-                  :apply_for="rankData.apply_for ?? ''"
-                  :s_rank_res="rankData.s_rank_res ?? ''"
-                  :req_code="rankData.req_code ?? ''"
-                  :has_supple="rankHasSupple"
-                  @update:rank_code="(v) => (rankCodeLocal = v)"
-                  @update:rank_cmt="(v) => (rankCmtLocal = v)"
-                  @approval-request="onRankApprovalRequest"
-                  @approve="onRankDecide('e0_10')"
-                  @reject="() => openReasonConfirmModal({ type: 'rank', decision: 'e0_99', reqCode: rankData?.req_code }, '반려 사유', '우선순위 반려 사유를 입력해 주세요.', '반려 사유를 입력해 주세요.')"
-                  @supple="() => openReasonConfirmModal({ type: 'rank', decision: 'e0_80', reqCode: rankData?.req_code }, '보완 사유', '우선순위 보완 사유를 입력해 주세요.', '보완 사유를 입력해 주세요.')"
-                  @cancel="onRankCancel"
-                  @open-supple-history="onOpenSuppleHistory"
-                />
-              </template>
+              <CounselRankTab
+                v-else-if="leftTab === 'rank'"
+                :rank-data="rankData"
+                :rank-loading="rankLoading"
+                :rank-code-local="rankCodeLocal"
+                :rank-cmt-local="rankCmtLocal"
+                :rank-has-supple="rankHasSupple"
+                @refresh="loadRankTab"
+                @update:rank-code-local="(v) => (rankCodeLocal = v)"
+                @update:rank-cmt-local="(v) => (rankCmtLocal = v)"
+                @approval-request="onRankApprovalRequest"
+                @approve="onRankDecide('e0_10')"
+                @reject="onRankDecide('e0_99')"
+                @supple="onRankSupple"
+                @cancel="onRankCancel"
+                @open-supple-history="onOpenSuppleHistory"
+              />
               <!-- 지원계획 -->
-              <template v-else-if="leftTab === 'plan'">
-                <div
-                  class="d-flex align-items-center justify-content-between mb-3"
-                >
-                  <h6 class="text-sm text-uppercase text-muted mb-0">
-                    지원계획
-                  </h6>
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-primary"
-                    @click="toggleAddPlan"
-                  >
-                    계획추가
-                  </button>
-                </div>
-                <!-- 계획 추가 폼 -->
-                <PlanAdd
-                  v-if="showAddPlanForm"
-                  ref="planAddRef"
-                  :sup-code="supCode"
-                  @approval-request="onPlanApprovalRequestFromAdd"
-                  @cancel="openPlanCancelModal('add')"
-                  @alert="
-                    (p) =>
-                      showAlert(
-                        p.type ?? 'error',
-                        p.title ?? '알림',
-                        p.message ?? '',
-                      )
-                  "
-                />
-                <div v-if="planLoading" class="text-muted text-sm">
-                  로딩 중...
-                </div>
-                <div
-                  v-else-if="planData.length === 0"
-                  class="text-muted text-sm"
-                >
-                  등록된 지원계획이 없습니다.
-                </div>
-                <template v-else>
-                  <SupportPlanDetail
-                    v-for="plan in planData"
-                    :key="plan.plan_code"
-                    :ref="(el) => setPlanDetailRef(plan.plan_code, el)"
-                    :plan_code="plan.plan_code"
-                    :support_plan_title="plan.plan_goal"
-                    :support_plan_content="plan.plan_content"
-                    :start_time="plan.start_time"
-                    :end_time="plan.end_time"
-                    :support_plan_file="plan.origin_file_name"
-                    :file_code="plan.file_code"
-                    :plan_result="plan.plan_tf"
-                    :plan_date="plan.plan_date"
-                    :support_plan_comment="plan.plan_cmt"
-                    :support_plan_reject_comment="plan.plan_cmt"
-                    :support_plan_updday="plan.plan_updday"
-                    :cancel-request="cancelRequestPlanCode"
-                    :has_supple="
-                      !!(plan.plan_tf === 'e0_80' || plan.prev_plan_code)
-                    "
-                    @result="loadResultForPlan"
-                    @open-supple-history="openPlanSuppleHistory(plan.plan_code)"
-                    @approve="
-                      (pc) =>
-                        supportStore
-                          .decidePlan(pc, 'e0_10', null)
-                          .then(() => loadPlanTab())
-                    "
-                    @supple="
-                      (pc) =>
-                        openReasonConfirmModal(
-                          { type: 'plan', decision: 'e0_80', planCode: pc },
-                          '보완 사유',
-                          '지원계획 보완 사유를 입력해 주세요.',
-                          '보완 사유를 입력해 주세요.',
-                        )
-                    "
-                    @reject="
-                      (pc) =>
-                        openReasonConfirmModal(
-                          { type: 'plan', decision: 'e0_99', planCode: pc },
-                          '반려 사유',
-                          '지원계획 반려 사유를 입력해 주세요.',
-                          '반려 사유를 입력해 주세요.',
-                        )
-                    "
-                    @edit-complete="onPlanEditComplete"
-                    @approval-request="onPlanApprovalRequest"
-                    @request-cancel="
-                      (planCode) => openPlanCancelModal('edit', planCode)
-                    "
-                    @cancel-done="clearCancelRequestPlan"
-                    @end="
-                      (pc) => supportStore.endPlan(pc).then(() => loadPlanTab())
-                    "
-                    @temp-save="onTempSaveFromDetailPlan"
-                    @history="(planCode) => openPlanHistory(planCode)"
-                    @alert="
-                      (p) =>
-                        showAlert(p.type ?? 'error', '알림', p.message ?? '')
-                    "
-                  />
-                </template>
-              </template>
+              <CounselPlanTab
+                v-else-if="leftTab === 'plan'"
+                ref="planTabRef"
+                :show-add-plan-form="showAddPlanForm"
+                :add-plan-form="addPlanForm"
+                @update:add-plan-form="(obj) => Object.assign(addPlanForm, obj)"
+                :add-plan-file-names="addPlanFileNames"
+                :plan-loading="planLoading"
+                :plan-data="planData"
+                :cancel-request-plan-code="cancelRequestPlanCode"
+                @set-plan-detail-ref="setPlanDetailRef"
+                @toggle-add="toggleAddPlan"
+                @load-temp="onLoadTempPlan"
+                @temp-save="onTempSaveFromAddPlan"
+                @plan-file-change="onPlanFileChange"
+                @open-file-dialog="openPlanFileDialog"
+                @approval-request-add="onPlanApprovalRequestFromAdd"
+                @cancel-add="openPlanCancelModal('add')"
+                @result="loadResultForPlan"
+                @open-supple-history="openPlanSuppleHistory"
+                @approve="(pc) => supportStore.decidePlan(pc, 'e0_10', null).then(() => loadPlanTab())"
+                @supple="(pc) => supportStore.decidePlan(pc, 'e0_80', null).then(() => loadPlanTab())"
+                @reject="(pc) => supportStore.decidePlan(pc, 'e0_99', null).then(() => loadPlanTab())"
+                @edit-complete="onPlanEditComplete"
+                @approval-request="onPlanApprovalRequest"
+                @request-cancel="(planCode) => openPlanCancelModal('edit', planCode)"
+                @cancel-done="clearCancelRequestPlan"
+                @end="(pc) => supportStore.endPlan(pc).then(() => loadPlanTab())"
+                @temp-save-detail="onTempSaveFromDetailPlan"
+                @history="openPlanHistory"
+                @alert="(p) => showAlert(p.type ?? 'error', '알림', p.message ?? '')"
+              />
               <!-- 지원결과 -->
-              <template v-else>
-                <div
-                  class="d-flex align-items-center justify-content-between mb-3"
-                >
-                  <h6 class="text-sm text-uppercase text-muted mb-0">
-                    지원결과
-                  </h6>
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-primary"
-                    @click="toggleAddResultForm"
-                  >
-                    결과추가
-                  </button>
-                </div>
-                <!-- 결과 추가 폼 -->
-                <ResultAdd
-                  v-if="showAddResultForm"
-                  ref="resultAddRef"
-                  :sup-code="supCode"
-                  @approval-request="onResultApprovalRequestFromAdd"
-                  @cancel="openResultCancelModal('add')"
-                  @alert="
-                    (p) =>
-                      showAlert(
-                        p.type ?? 'error',
-                        p.title ?? '알림',
-                        p.message ?? '',
-                      )
-                  "
-                />
-                <div v-if="resultLoading" class="text-muted text-sm">
-                  로딩 중...
-                </div>
-                <div
-                  v-else-if="resultData.length === 0"
-                  class="text-muted text-sm"
-                >
-                  등록된 지원결과가 없습니다.
-                </div>
-                <template v-else>
-                  <SupportResultDetail
-                    v-for="result in resultData"
-                    :key="result.result_code"
-                    :ref="(el) => setResultDetailRef(result.result_code, el)"
-                    :result_code="result.result_code"
-                    :result_title="result.result_title"
-                    :result_content="result.result_content"
-                    :result_date="result.result_date"
-                    :result_tf="result.result_tf"
-                    :result_cmt="result.result_cmt"
-                    :result_updday="result.result_updday"
-                    :result_result="result.result_tf"
-                    :cancel-request="cancelRequestResultCode"
-                    :has_supple="
-                      !!(
-                        result.result_tf === 'e0_80' || result.prev_result_code
-                      )
-                    "
-                    @open-supple-history="
-                      openResultSuppleHistory(result.result_code)
-                    "
-                    @approve="
-                      (rc) =>
-                        supportStore
-                          .decideResult(rc, 'e0_10', null)
-                          .then(() =>
-                            supportStore.supportResultDetail(
-                              supCode.value,
-                              selectedPlanCode.value,
-                            ),
-                          )
-                    "
-                    @supple="
-                      (rc) =>
-                        openReasonConfirmModal(
-                          { type: 'result', decision: 'e0_80', resultCode: rc },
-                          '보완 사유',
-                          '지원결과 보완 사유를 입력해 주세요.',
-                          '보완 사유를 입력해 주세요.',
-                        )
-                    "
-                    @reject="
-                      (rc) =>
-                        openReasonConfirmModal(
-                          { type: 'result', decision: 'e0_99', resultCode: rc },
-                          '반려 사유',
-                          '지원결과 반려 사유를 입력해 주세요.',
-                          '반려 사유를 입력해 주세요.',
-                        )
-                    "
-                    @edit-complete="onResultEditComplete"
-                    @approval-request="onResultApprovalRequest"
-                    @request-cancel="
-                      (resultCode) => openResultCancelModal('edit', resultCode)
-                    "
-                    @cancel-done="clearCancelRequestResult"
-                    @temp-save="onTempSaveFromDetailResult"
-                    @history="(resultCode) => openResultHistory(resultCode)"
-                    @alert="
-                      (p) =>
-                        showAlert(p.type ?? 'error', '알림', p.message ?? '')
-                    "
-                  />
-                </template>
-              </template>
+              <CounselResultTab
+                v-else
+                ref="resultTabRef"
+                :show-add-result-form="showAddResultForm"
+                :add-result-form="addResultForm"
+                @update:add-result-form="(obj) => Object.assign(addResultForm, obj)"
+                :add-result-file-names="addResultFileNames"
+                :result-loading="resultLoading"
+                :result-data="resultData"
+                :cancel-request-result-code="cancelRequestResultCode"
+                @set-result-detail-ref="setResultDetailRef"
+                @toggle-add="toggleAddResultForm"
+                @load-temp="onLoadTempResult"
+                @temp-save="onTempSaveFromAddResult"
+                @result-file-change="onResultFileChange"
+                @open-file-dialog="openResultFileDialog"
+                @approval-request-add="onResultApprovalRequestFromAdd"
+                @cancel-add="openResultCancelModal('add')"
+                @open-supple-history="openResultSuppleHistory"
+                @approve="(rc) => supportStore.decideResult(rc, 'e0_10', null).then(() => supportStore.supportResultDetail(supCode.value, selectedPlanCode.value))"
+                @supple="(rc) => supportStore.decideResult(rc, 'e0_80', null).then(() => supportStore.supportResultDetail(supCode.value, selectedPlanCode.value))"
+                @reject="(rc) => supportStore.decideResult(rc, 'e0_99', null).then(() => supportStore.supportResultDetail(supCode.value, selectedPlanCode.value))"
+                @edit-complete="onResultEditComplete"
+                @approval-request="onResultApprovalRequest"
+                @request-cancel="(resultCode) => openResultCancelModal('edit', resultCode)"
+                @cancel-done="clearCancelRequestResult"
+                @temp-save-detail="onTempSaveFromDetailResult"
+                @history="openResultHistory"
+                @alert="(p) => showAlert(p.type ?? 'error', '알림', p.message ?? '')"
+              />
             </div>
           </div>
         </div>
 
-        <!-- ─── 우측: 상담내역 (상담내역 보기 클릭 시에만 표시) ─── -->
+        <!-- ─── 우측: 상담내역 ─── -->
         <div v-if="showRightPanel" class="col-lg-7">
-          <div class="card shadow-sm">
-            <div
-              class="card-header py-2 d-flex align-items-center justify-content-between"
-            >
-              <div class="d-flex align-items-center gap-2">
-                <h6 class="mb-0 fw-bold">상담내역</h6>
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
-                  @click="openAddForm"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <line x1="12" y1="5" x2="12" y2="19" />
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                  </svg>
-                  <span>상담추가</span>
-                </button>
-              </div>
-            </div>
-            <div class="card-body">
-              <!-- 상담등록 폼 (상담추가 클릭 시, 항상 제일 위) -->
-              <!-- 상담 상세보기 (readonly) -->
-              <div
-                v-if="selectedCounselDetail"
-                class="border rounded p-3 mb-4 bg-light"
-              >
-                <div
-                  class="d-flex align-items-center justify-content-between mb-3"
-                >
-                  <h6 class="text-sm text-uppercase text-muted mb-0">
-                    상담 상세
-                  </h6>
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-secondary"
-                    @click="closeDetail"
-                  >
-                    닫기
-                  </button>
-                </div>
-                <div class="mb-2">
-                  <label class="form-label text-xs mb-0">제목</label>
-                  <input
-                    type="text"
-                    class="form-control form-control-sm bg-white"
-                    :value="selectedCounselDetail.csl_title"
-                    readonly
-                  />
-                </div>
-                <div class="mb-2">
-                  <label class="form-label text-xs mb-0">상담일</label>
-                  <input
-                    type="text"
-                    class="form-control form-control-sm bg-white"
-                    :value="formatCounselDate(selectedCounselDetail.csl_date)"
-                    readonly
-                  />
-                </div>
-                <div class="mb-2">
-                  <label class="form-label text-xs mb-0">상담진행자</label>
-                  <input
-                    type="text"
-                    class="form-control form-control-sm bg-white"
-                    :value="
-                      selectedCounselDetail.csl_writer_nm ||
-                      selectedCounselDetail.csl_name ||
-                      selectedCounselDetail.csl_writer
-                    "
-                    readonly
-                  />
-                </div>
-                <div class="mb-2">
-                  <label class="form-label text-xs mb-0">내용</label>
-                  <textarea
-                    class="form-control form-control-sm bg-white"
-                    rows="4"
-                    readonly
-                    :value="selectedCounselDetail.csl_content"
-                  />
-                </div>
-              </div>
-
-              <!-- 상담등록 폼 (상담추가 클릭 시) -->
-              <div v-if="showForm" class="border rounded p-3 mb-4 bg-light">
-                <div
-                  class="d-flex align-items-center justify-content-between mb-3"
-                >
-                  <h6 class="text-sm text-uppercase text-muted mb-0">
-                    상담등록
-                  </h6>
-                  <div class="d-flex gap-2">
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-secondary"
-                      :disabled="tempSaveLoading"
-                      @click="doTempSave"
-                    >
-                      {{ tempSaveLoading ? "저장 중..." : "임시저장" }}
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-primary"
-                      :disabled="tempStorageListLoading"
-                      @click="openTempStorageModal"
-                    >
-                      {{
-                        tempStorageListLoading ? "로딩..." : "임시저장 불러오기"
-                      }}
-                    </button>
-                  </div>
-                </div>
-                <div class="mb-2">
-                  <label class="form-label text-xs mb-0">제목</label>
-                  <input
-                    v-model="counselForm.csl_title"
-                    type="text"
-                    class="form-control form-control-sm"
-                    placeholder="제목을 입력해주세요"
-                  />
-                </div>
-                <div class="mb-2">
-                  <label class="form-label text-xs mb-0">상담일</label>
-                  <input
-                    v-model="counselForm.counselDate"
-                    type="date"
-                    class="form-control form-control-sm"
-                  />
-                </div>
-                <div class="mb-2">
-                  <label class="form-label text-xs mb-0">상담진행자</label>
-                  <select
-                    v-model="counselForm.csl_writer"
-                    class="form-select form-select-sm"
-                    :disabled="writerListLoading"
-                  >
-                    <option value="">선택하세요</option>
-                    <option
-                      v-for="w in writerList"
-                      :key="w.m_no"
-                      :value="w.m_no"
-                    >
-                      {{ w.m_nm }}
-                    </option>
-                  </select>
-                </div>
-                <div class="mb-2">
-                  <label class="form-label text-xs mb-0">내용</label>
-                  <textarea
-                    v-model="counselForm.csl_content"
-                    class="form-control form-control-sm"
-                    rows="3"
-                    placeholder="내용을 입력해주세요"
-                  />
-                </div>
-                <div class="mb-3">
-                  <label class="form-label text-xs mb-0">첨부파일</label>
-                  <input
-                    type="file"
-                    class="form-control form-control-sm"
-                    multiple
-                    @change="setCounselFiles($event.target.files)"
-                  />
-                  <small class="text-muted"
-                    >첨부파일 저장은 추후 연동 예정입니다.</small
-                  >
-                </div>
-                <div class="d-flex justify-content-end gap-2">
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-warning"
-                    :disabled="counselFormSaving"
-                    @click="saveCounsel"
-                  >
-                    {{ counselFormSaving ? "저장 중..." : "저장" }}
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-secondary"
-                    :disabled="counselFormSaving"
-                    @click="cancelForm"
-                  >
-                    취소
-                  </button>
-                </div>
-              </div>
-
-              <!-- 상담내역 목록 (sup_code 기준 조회) -->
-              <h6 class="text-sm text-uppercase text-muted mb-2">
-                상담내역 목록
-              </h6>
-              <p v-if="counselListLoading" class="text-muted text-sm mb-0">
-                로딩 중...
-              </p>
-              <p v-else-if="counselListError" class="text-danger text-sm mb-0">
-                {{ counselListError }}
-              </p>
-              <div v-else class="list-group list-group-flush">
-                <div
-                  v-for="item in counselList"
-                  :key="item.csl_code"
-                  class="list-group-item px-0 border-bottom d-flex align-items-center justify-content-between"
-                >
-                  <div class="flex-grow-1 text-sm">
-                    <div class="d-flex flex-wrap gap-2 align-items-center mb-1">
-                      <span class="text-muted">{{
-                        formatCounselDate(item.csl_date)
-                      }}</span>
-                      <span
-                        v-if="item.csl_writer_nm || item.csl_name"
-                        class="text-muted"
-                        >{{ item.csl_writer_nm || item.csl_name }}</span
-                      >
-                    </div>
-                    <div class="fw-semibold">{{ item.csl_title }}</div>
-                    <div class="text-muted small">
-                      {{ contentPreview(item.csl_content) }}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-secondary flex-shrink-0"
-                    @click="openDetail(item)"
-                  >
-                    상세보기
-                  </button>
-                </div>
-                <div
-                  v-if="
-                    !counselListLoading &&
-                    !counselListError &&
-                    counselList.length === 0
-                  "
-                  class="list-group-item text-center text-muted py-4"
-                >
-                  저장된 상담내역이 없습니다.
-                </div>
-              </div>
-            </div>
-          </div>
+          <CounselRightPanel
+            :counsel-list="counselList"
+            :counsel-list-loading="counselListLoading"
+            :counsel-list-error="counselListError"
+            :writer-list="writerList"
+            :writer-list-loading="writerListLoading"
+            :show-form="showForm"
+            :counsel-form="counselForm"
+            @update:counsel-form="(obj) => Object.assign(counselForm.value || {}, obj)"
+            :counsel-form-saving="counselFormSaving"
+            :temp-save-loading="tempSaveLoading"
+            :temp-storage-list-loading="tempStorageListLoading"
+            :selected-counsel-detail="selectedCounselDetail"
+            @open-add-form="openAddForm"
+            @close-detail="closeDetail"
+            @open-detail="openDetail"
+            @cancel-form="cancelForm"
+            @save-counsel="(payload) => saveCounsel(payload)"
+            @temp-save="doTempSave"
+            @open-temp-load="openTempStorageModal"
+            @set-counsel-files="setCounselFiles"
+          />
         </div>
       </div>
     </div>
