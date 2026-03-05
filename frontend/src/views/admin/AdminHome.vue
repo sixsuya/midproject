@@ -1,6 +1,7 @@
 <!-- src/views/admin/AdminHome.vue -->
 <script setup>
 import { computed, ref, watch, onMounted } from "vue";
+import { usePagination } from "@/composables/usePagination";
 import TablePagination from "@/views/components/TablePagination.vue";
 
 // ✅ 체크박스 선택 상태(선택된 기관 no 목록)
@@ -166,23 +167,14 @@ const filteredRows = computed(() => {
   return rows.value.filter((r) => r.orgName.includes(q));
 });
 
-// 페이징: 페이지당 10건, 순번은 전체 건수 기준 내림차순
-const page = ref(1);
-const pageSize = 10;
-const totalRows = computed(() => filteredRows.value.length);
-const pagedRows = computed(() => {
-  const start = (page.value - 1) * pageSize;
-  return filteredRows.value.slice(start, start + pageSize);
-});
-const rowDisplayNo = (indexInPage) =>
-  totalRows.value - ((page.value - 1) * pageSize + indexInPage);
-
-watch(
-  () => filteredRows.value.length,
-  () => {
-    page.value = 1;
-  },
-);
+// 페이징: 공통 composable 사용 (페이지당 10건, 순번은 전체 건수 기준 내림차순)
+const {
+  page,
+  pageSize,
+  totalItems: totalRows,
+  pagedItems: pagedRows,
+  rowDisplayNo,
+} = usePagination(() => filteredRows.value, 10);
 
 // ------- 기관 주소 입력(우편번호 API) 공통 유틸 -------
 const createZipCode = ref("");

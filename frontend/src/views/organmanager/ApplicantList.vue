@@ -1,8 +1,10 @@
 <script setup>
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "@/store/auth";
-import TablePagination from "@/views/components/TablePagination.vue";
+import { usePagination } from "@/composables/usePagination";
+import SearchNavbar from "@/views/components/SearchNavbar.vue";
+import MainTable from "@/views/components/MainTable.vue";
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -198,23 +200,14 @@ const filteredRows = computed(() => {
   });
 });
 
-// 페이징: 페이지당 10건, 번호는 전체 건수 기준 내림차순(첫 행이 가장 큰 번호)
-const page = ref(1);
-const pageSize = 10;
-const totalRows = computed(() => filteredRows.value.length);
-const pagedRows = computed(() => {
-  const start = (page.value - 1) * pageSize;
-  return filteredRows.value.slice(start, start + pageSize);
-});
-const rowDisplayNo = (indexInPage) =>
-  totalRows.value - ((page.value - 1) * pageSize + indexInPage);
-
-watch(
-  () => filteredRows.value.length,
-  () => {
-    page.value = 1;
-  },
-);
+// 페이징: 공통 composable 사용 (페이지당 10건, 번호는 전체 건수 기준 내림차순)
+const {
+  page,
+  pageSize,
+  totalItems: totalRows,
+  pagedItems: pagedRows,
+  rowDisplayNo,
+} = usePagination(() => filteredRows.value, 10);
 
 onMounted(() => {
   loadOrganManagerList();
