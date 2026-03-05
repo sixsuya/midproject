@@ -41,20 +41,20 @@ function onClose() {
 <template>
   <Teleport to="body">
     <Transition name="confirm-modal">
-      <div
-        v-if="show"
-        class="confirm-modal-backdrop"
-        @click.self="onClose"
-      >
+      <div v-if="show" class="confirm-modal-backdrop" @click.self="onClose">
         <div class="confirm-modal rounded">
           <div class="confirm-modal-header rounded-top">
             {{ title }}
           </div>
           <div class="confirm-modal-body">
             <p class="confirm-modal-message">{{ message }}</p>
-            <p v-if="warningMessage" class="confirm-modal-warning">{{ warningMessage }}</p>
+            <p v-if="warningMessage" class="confirm-modal-warning">
+              {{ warningMessage }}
+            </p>
             <template v-if="showReason">
-              <label class="confirm-modal-reason-label">{{ reasonLabel }}</label>
+              <label class="confirm-modal-reason-label">
+                {{ reasonLabel }}
+              </label>
               <textarea
                 v-model="reasonText"
                 class="confirm-modal-reason-input"
