@@ -29,7 +29,7 @@ router.post("/request", async (req, res) => {
 // 승인(e0_10) / 반려(e0_99): rank 판정 업데이트 후 support.rank_res에 req_code 반영
 router.put("/decide", async (req, res) => {
   try {
-    const { req_code, sup_code, decision } = req.body;
+    const { req_code, sup_code, decision, rank_cmt } = req.body;
     if (!req_code || !sup_code || !decision) {
       res.json({ retCode: "Fail", retMsg: "req_code, sup_code, decision 필요" });
       return;
@@ -39,11 +39,8 @@ router.put("/decide", async (req, res) => {
       res.json({ retCode: "Fail", retMsg: "decision 오류" });
       return;
     }
-    const result = await rankService.decideRank(req_code, sup_code, decisionStr);
-    const retMsg = result && result.emailSent === false
-      ? "처리 완료. 단, 결과 안내 메일 발송에 실패했거나 수신 이메일이 없습니다."
-      : "처리 완료";
-    res.json({ retCode: "Success", retMsg });
+    await rankService.decideRank(req_code, sup_code, decisionStr, rank_cmt ?? null);
+    res.json({ retCode: "Success", retMsg: "처리 완료" });
   } catch (err) {
     console.error(err);
     res.json({ retCode: "Error", retMsg: "처리 실패" });

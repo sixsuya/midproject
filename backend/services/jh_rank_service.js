@@ -134,23 +134,25 @@ const svc = {
     return rows ?? null;
   },
 
-  // 승인(e0_10) / 반려(e0_99): support.rank_res 반영 후 rank s_rank_res 업데이트 (순서: support 먼저) + 신청 회원 이메일 회신
-  decideRank: async (req_code, sup_code, s_rank_res) => {
+  // 승인(e0_10) / 반려(e0_99): support.rank_res 반영 후 rank s_rank_res 업데이트 (순서: support 먼저). 반려 시 rank_cmt 저장
+  decideRank: async (req_code, sup_code, s_rank_res, rank_cmt = null) => {
     const decisionStr = String(s_rank_res);
     await query("supportRankResUpdate", [req_code, sup_code]).catch((err) => {
       console.error(err);
       throw err;
     });
-    await query("rankDecide", [decisionStr, req_code]).catch((err) => {
-      console.error(err);
-      throw err;
-    });
-    let emailSent = false;
-    const member = await getMemberEmailBySupCode(sup_code);
-    if (member && member.m_email) {
-      emailSent = await sendRankResultEmail(member.m_email, member.m_nm, sup_code, decisionStr, null);
+    if (decisionStr === "e0_99" && rank_cmt != null && String(rank_cmt).trim() !== "") {
+      await query("rankDecideReject", [String(rank_cmt).trim(), req_code]).catch((err) => {
+        console.error(err);
+        throw err;
+      });
+    } else {
+      await query("rankDecide", [decisionStr, req_code]).catch((err) => {
+        console.error(err);
+        throw err;
+      });
     }
-    return { emailSent };
+    return null;
   },
 
   // 보완: s_rank_res e0_80, rank_cmt 저장 + 신청 회원 이메일 회신
