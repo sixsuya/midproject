@@ -39,8 +39,11 @@ router.put("/decide", async (req, res) => {
       res.json({ retCode: "Fail", retMsg: "decision 오류" });
       return;
     }
-    await rankService.decideRank(req_code, sup_code, decisionStr);
-    res.json({ retCode: "Success", retMsg: "처리 완료" });
+    const result = await rankService.decideRank(req_code, sup_code, decisionStr);
+    const retMsg = result && result.emailSent === false
+      ? "처리 완료. 단, 결과 안내 메일 발송에 실패했거나 수신 이메일이 없습니다."
+      : "처리 완료";
+    res.json({ retCode: "Success", retMsg });
   } catch (err) {
     console.error(err);
     res.json({ retCode: "Error", retMsg: "처리 실패" });
@@ -55,8 +58,11 @@ router.put("/supple", async (req, res) => {
       res.json({ retCode: "Fail", retMsg: "req_code 필요" });
       return;
     }
-    await rankService.suppleRank(req_code, rank_cmt ?? null);
-    res.json({ retCode: "Success", retMsg: "처리 완료" });
+    const result = await rankService.suppleRank(req_code, rank_cmt ?? null);
+    const retMsg = result && result.emailSent === false
+      ? "처리 완료. 단, 결과 안내 메일 발송에 실패했거나 수신 이메일이 없습니다."
+      : "처리 완료";
+    res.json({ retCode: "Success", retMsg });
   } catch (err) {
     console.error(err);
     res.json({ retCode: "Error", retMsg: "처리 실패" });

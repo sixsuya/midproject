@@ -68,6 +68,18 @@ const qry = {
       rank_cmt = ?
   WHERE req_code = ?
   `,
+
+  // 우선순위 판정 결과 회신: support 신청자(mem_no)의 이메일 조회
+  selectMemberEmailBySupCode: `
+  SELECT m.m_no, m.m_email, m.m_nm
+  FROM support s
+  JOIN member m ON s.mem_no = m.m_no
+  WHERE s.sup_code = ?
+  LIMIT 1
+  `,
+
+  // req_code로 sup_code 조회 (보완 시 이메일 발송용)
+  selectSupCodeByReqCode: `SELECT sup_code FROM \`rank\` WHERE req_code = ? LIMIT 1`,
 };
 
 // sqList.js로 넘김
