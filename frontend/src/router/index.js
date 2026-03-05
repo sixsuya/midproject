@@ -1,10 +1,10 @@
 import { createRouter, createWebHistory } from "vue-router";
 import MainLayout from "@/layouts/MainLayout.vue";
-import Signup from "../views/Signup.vue";
-import Signin from "../views/Signin.vue";
-import FindId from "../views/FindId.vue";
-import FindPassword from "../views/FindPassword.vue";
-import ResetPassword from "../views/ResetPassword.vue";
+import Signup from "../views/sign/Signup.vue";
+import Signin from "../views/sign/Signin.vue";
+import FindId from "../views/sign/FindId.vue";
+import FindPassword from "../views/sign/FindPassword.vue";
+import ProxyTest from "../views/ProxyTest.vue";
 import { useAuthStore } from "@/store/auth";
 import kjh from "./kjh";
 import psw from "./psw";
@@ -12,9 +12,21 @@ import six from "./six";
 // import yang from "./yang";
 
 /** 로그인이 필요한 경로 (접두어) */
-const AUTH_REQUIRED_PATHS = ["/applicant", "/manager", "/organmanager", "/admin", "/managermanage", "/applicantmanage", "/organmanagermanage", "/apply", "/mypage"];
+const AUTH_REQUIRED_PATHS = [
+  "/applicant",
+  "/manager",
+  "/organmanager",
+  "/admin",
+  "/managermanage",
+  "/applicantmanage",
+  "/organmanagermanage",
+  "/apply",
+  "/mypage",
+];
 function requiresAuth(path) {
-  return AUTH_REQUIRED_PATHS.some((p) => path === p || path.startsWith(p + "/"));
+  return AUTH_REQUIRED_PATHS.some(
+    (p) => path === p || path.startsWith(p + "/"),
+  );
 }
 const routesList = [
   // 1) 지원자(기존) 영역: MainLayout 아래
@@ -25,7 +37,7 @@ const routesList = [
       {
         path: "",
         name: "home",
-        component: () => import("@/views/Signin.vue"),
+        component: () => import("@/views/sign/Signin.vue"),
       },
       {
         path: "apply",
@@ -55,12 +67,12 @@ const routesList = [
       {
         path: "mypage/manager",
         name: "mypage-manager",
-        component: () => import("@/views/Y_ManagerInfo.vue"),
+        component: () => import("@/views/mypage/ManagerInfo.vue"),
       },
       {
         path: "mypage/organmanager",
         name: "mypage-organmanager",
-        component: () => import("@/views/Y_OrganManagerInfo.vue"),
+        component: () => import("@/views/mypage/OrganManagerInfo.vue"),
       },
     ],
   },
@@ -86,14 +98,14 @@ const routesList = [
     component: FindId,
   },
   {
-    path: "/reset-password",
-    name: "ResetPassword",
-    component: ResetPassword,
-  },
-  {
     path: "/find-password",
     name: "FindPassword",
     component: FindPassword,
+  },
+  {
+    path: "/proxy-test",
+    name: "ProxyTest",
+    component: ProxyTest,
   },
 ];
 

@@ -8,6 +8,7 @@ import AppFooter from "@/examples/PageLayout/Footer.vue";
 import ArgonInput from "@/components/ArgonInput.vue";
 import ArgonButton from "@/components/ArgonButton.vue";
 import { useRouter } from "vue-router";
+import { useVerificationTimer } from "@/composables/useVerificationTimer";
 
 const body = document.getElementsByTagName("body")[0];
 const store = useStore();
@@ -91,40 +92,12 @@ const authCodeMap = {
 
 const showModal = ref(false);
 const modalMessage = ref("");
-const countdown = ref(0);
-let timerInterval = null;
-
-const TIMER_STORAGE_KEY = "verifi_end_signup";
-const TIMER_DURATION_SEC = 180;
-
-// 만료 시각 기준 남은 초 (탭 이동 후 복귀 시에도 정확히 계산)
-const getRemainingSeconds = (endTimeMs) =>
-  Math.max(0, Math.ceil((endTimeMs - Date.now()) / 1000));
-
-const stopTimer = () => {
-  if (timerInterval) {
-    clearInterval(timerInterval);
-    timerInterval = null;
-  }
-};
-
-// 타이머 구동: 매초 endTime 기준으로 남은 초 갱신 (탭 비활성 시에도 복귀 후 정확)
-const runTimerInterval = (endTimeMs) => {
-  stopTimer();
-  const tick = () => {
-    const remaining = getRemainingSeconds(endTimeMs);
-    countdown.value = remaining;
-    if (remaining <= 0) {
-      stopTimer();
-      sessionStorage.removeItem(TIMER_STORAGE_KEY);
-      authMessage.value = "인증시간이 만료되었습니다. 다시 요청해주세요.";
-      isEmailVerified.value = false;
-      axios.post("/api/verifi/expire", { email: email.value, purpose: "i0_10" }).catch(() => {});
-    }
-  };
-  tick();
-  timerInterval = setInterval(tick, 1000);
-};
+const {
+  countdown,
+  startTimer,
+  restoreTimer,
+  stopTimer,
+} = useVerificationTimer("verifi_end_signup", 180);
 
 // 이메일 인증 버튼 라벨: 인증완료 → 발송중 → (발송 후 만료/실패 시) 재인증 → 이메일 인증
 const emailButtonLabel = computed(() => {
@@ -168,8 +141,6 @@ const extractCityFromAddress = (addr) => {
   return firstToken.replace(/광역시|특별시|시$/, "").slice(0, 2);
 };
 
-
-
 // --- [라이프사이클] ---
 
 onMounted(async () => {
@@ -180,19 +151,13 @@ onMounted(async () => {
     console.error("기관 목록 조회 실패", err);
   }
   // 탭/페이지 이동 후 복귀 시 저장된 만료 시각으로 카운트 복구
-  const saved = sessionStorage.getItem(TIMER_STORAGE_KEY);
-  if (saved) {
-    const endTimeMs = parseInt(saved, 10);
-    if (endTimeMs > Date.now()) {
-      showAuthSection.value = true;
-      countdown.value = getRemainingSeconds(endTimeMs);
-      runTimerInterval(endTimeMs);
-    } else {
-      sessionStorage.removeItem(TIMER_STORAGE_KEY);
-      countdown.value = 0;
-      showAuthSection.value = true;
-    }
-  }
+  restoreTimer(() => {
+    authMessage.value = "인증시간이 만료되었습니다. 다시 요청해주세요.";
+    isEmailVerified.value = false;
+    axios
+      .post("/api/verifi/expire", { email: email.value, purpose: "i0_10" })
+      .catch(() => {});
+  });
 });
 
 onBeforeMount(() => {
@@ -284,7 +249,13 @@ const sendEmailVerification = async () => {
     const res = await axios.post("/api/verifi/join", { email: email.value });
     authMessage.value = res.data.message || "인증번호가 발송되었습니다.";
     showAuthSection.value = true;
-    startTimer(); // 3분 타이머
+    startTimer(() => {
+      authMessage.value = "인증시간이 만료되었습니다. 다시 요청해주세요.";
+      isEmailVerified.value = false;
+      axios
+        .post("/api/verifi/expire", { email: email.value, purpose: "i0_10" })
+        .catch(() => {});
+    }); // 3분 타이머
   } catch (err) {
     authMessage.value =
       err.response?.data?.message || "인증번호 발송에 실패했습니다.";
@@ -292,18 +263,9 @@ const sendEmailVerification = async () => {
     isSendingCode.value = false;
   }
 };
-// 인증 타이머: 만료 시각을 저장해 두면 탭 이동 후에도 남은 시간 복구 가능
-const startTimer = () => {
-  const endTimeMs = Date.now() + TIMER_DURATION_SEC * 1000;
-  sessionStorage.setItem(TIMER_STORAGE_KEY, String(endTimeMs));
-  countdown.value = TIMER_DURATION_SEC;
-  runTimerInterval(endTimeMs);
-};
-
 // 이메일 입력 변경 시 인증 상태 초기화
 const resetEmailVerificationState = () => {
   stopTimer();
-  sessionStorage.removeItem(TIMER_STORAGE_KEY);
   emailErrorMessage.value = "";
   isEmailVerified.value = false;
   showAuthSection.value = false;
@@ -329,13 +291,11 @@ const confirmAuthCode = async () => {
     authMessage.value = res.data.message || "인증이 완료되었습니다.";
     isEmailVerified.value = true;
     stopTimer();
-    sessionStorage.removeItem(TIMER_STORAGE_KEY);
   } catch (err) {
     authMessage.value =
       err.response?.data?.message ||
       "인증번호가 일치하지 않습니다. 인증 번호를 다시 발급받아주세요.";
     stopTimer();
-    sessionStorage.removeItem(TIMER_STORAGE_KEY);
     countdown.value = 0;
   } finally {
     isVerifying.value = false;
@@ -802,3 +762,4 @@ const searchAddress = () => {
   display: block;
 }
 </style>
+

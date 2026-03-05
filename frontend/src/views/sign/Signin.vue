@@ -318,23 +318,3 @@ onBeforeUnmount(() => {
   </main>
 </template>
 
-<style scoped>
-.external-icon {
-  width: 50px;
-  height: 50px;
-  background: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  color: #333;
-  text-decoration: none;
-  transition: all 0.2s;
-}
-
-.external-icon:hover {
-  transform: scale(1.1);
-  background: #f2f2f2;
-}
-</style>

@@ -6,9 +6,10 @@ import TempStorageModal from "@/components/TempStorageModal.vue";
 
 const props = defineProps({
   supCode: { type: String, default: "" },
+  show: { type: Boolean, default: true },
 });
 
-const emit = defineEmits(["approval-request", "cancel", "alert"]);
+const emit = defineEmits(["approval-request", "cancel", "alert", "toggle"]);
 
 const form = reactive({
   title: "",
@@ -50,39 +51,35 @@ const {
   openLoadModal,
   applyItem,
   deleteSelectedTemp,
-} = useTempStorage(
-  () => props.supCode,
-  "j0_20",
-  {
-    getPayload: () => ({
-      save_title: (form.title ?? "").trim(),
-      save_content: JSON.stringify({
-        content: form.content ?? "",
-        startDate: form.startDate ?? "",
-        endDate: form.endDate ?? "",
-      }),
+} = useTempStorage(() => props.supCode, "j0_20", {
+  getPayload: () => ({
+    save_title: (form.title ?? "").trim(),
+    save_content: JSON.stringify({
+      content: form.content ?? "",
+      startDate: form.startDate ?? "",
+      endDate: form.endDate ?? "",
     }),
-    setPayload: (item) => {
-      if (!item) return;
-      form.title = item.save_title ?? "";
-      try {
-        const o = JSON.parse(item.save_content || "{}");
-        form.content = o.content ?? item.save_content ?? "";
-        form.startDate = o.startDate ?? "";
-        form.endDate = o.endDate ?? "";
-      } catch {
-        form.content = item.save_content ?? "";
-      }
-    },
-    validate: (payload) => {
-      if (!(payload.save_title && payload.save_title.trim())) {
-        return { valid: false, message: "제목을 입력해주세요." };
-      }
-      return { valid: true };
-    },
-    onAlert: (type, title, message) => emit("alert", { type, title, message }),
+  }),
+  setPayload: (item) => {
+    if (!item) return;
+    form.title = item.save_title ?? "";
+    try {
+      const o = JSON.parse(item.save_content || "{}");
+      form.content = o.content ?? item.save_content ?? "";
+      form.startDate = o.startDate ?? "";
+      form.endDate = o.endDate ?? "";
+    } catch {
+      form.content = item.save_content ?? "";
+    }
   },
-);
+  validate: (payload) => {
+    if (!(payload.save_title && payload.save_title.trim())) {
+      return { valid: false, message: "제목을 입력해주세요." };
+    }
+    return { valid: true };
+  },
+  onAlert: (type, title, message) => emit("alert", { type, title, message }),
+});
 
 function onApprovalRequest() {
   emit("approval-request", {
@@ -111,39 +108,107 @@ defineExpose({ reset, deleteTempAfterInsert: deleteSelectedTemp });
 </script>
 
 <template>
-  <div class="card shadow-sm border-radius-lg mb-4">
-    <div class="card-body">
-      <div class="d-flex justify-content-end gap-2 mb-3">
-        <button type="button" class="btn btn-sm btn-outline-secondary" @click="openLoadModal">임시저장 불러오기</button>
-        <button type="button" class="btn btn-sm btn-secondary" @click="doTempSave">임시저장</button>
-      </div>
-      <div class="mb-3">
-        <label class="form-label text-sm text-body mb-1">제목</label>
-        <input v-model="form.title" type="text" class="form-control form-control-sm" placeholder="지원 계획 제목" />
-      </div>
-      <div class="mb-3">
-        <label class="form-label text-sm text-body mb-1">내용</label>
-        <textarea v-model="form.content" class="form-control form-control-sm" placeholder="계획" rows="3"></textarea>
-      </div>
-      <div class="mb-3">
-        <label class="form-label text-sm text-body mb-1">지원기간</label>
-        <div class="d-flex align-items-center flex-wrap gap-2">
-          <input v-model="form.startDate" type="date" class="form-control form-control-sm" style="max-width: 11rem" />
-          <span class="text-body">~</span>
-          <input v-model="form.endDate" type="date" class="form-control form-control-sm" style="max-width: 11rem" />
+  <div class="mb-3">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+      <h6 class="text-sm text-uppercase text-muted mb-0">지원계획</h6>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-primary"
+        @click="emit('toggle')"
+      >
+        계획추가
+      </button>
+    </div>
+    <div v-if="show" class="card shadow-sm border-radius-lg mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-end gap-2 mb-3">
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            @click="openLoadModal"
+          >
+            임시저장 불러오기
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-secondary"
+            @click="doTempSave"
+          >
+            임시저장
+          </button>
         </div>
-      </div>
-      <div class="mb-3">
-        <label class="form-label text-sm text-body mb-1">첨부파일</label>
-        <input ref="fileInput" type="file" class="d-none" multiple @change="onFileChange" />
-        <button type="button" class="form-control form-control-sm text-start bg-white" @click="openFileDialog">
-          <span v-if="fileNames">{{ fileNames }}</span>
-          <span v-else class="text-muted">파일을 선택하세요. 10MB 초과 불가.</span>
-        </button>
-      </div>
-      <div class="d-flex justify-content-end gap-2">
-        <button type="button" class="btn btn-sm btn-outline-primary" @click="onApprovalRequest">승인요청</button>
-        <button type="button" class="btn btn-sm btn-outline-secondary" @click="onCancel">취소</button>
+        <div class="mb-3">
+          <label class="form-label text-sm text-body mb-1">제목</label>
+          <input
+            v-model="form.title"
+            type="text"
+            class="form-control form-control-sm"
+            placeholder="지원 계획 제목"
+          />
+        </div>
+        <div class="mb-3">
+          <label class="form-label text-sm text-body mb-1">내용</label>
+          <textarea
+            v-model="form.content"
+            class="form-control form-control-sm"
+            placeholder="계획"
+            rows="3"
+          ></textarea>
+        </div>
+        <div class="mb-3">
+          <label class="form-label text-sm text-body mb-1">지원기간</label>
+          <div class="d-flex align-items-center flex-wrap gap-2">
+            <input
+              v-model="form.startDate"
+              type="date"
+              class="form-control form-control-sm"
+              style="max-width: 11rem"
+            />
+            <span class="text-body">~</span>
+            <input
+              v-model="form.endDate"
+              type="date"
+              class="form-control form-control-sm"
+              style="max-width: 11rem"
+            />
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label text-sm text-body mb-1">첨부파일</label>
+          <input
+            ref="fileInput"
+            type="file"
+            class="d-none"
+            multiple
+            @change="onFileChange"
+          />
+          <button
+            type="button"
+            class="form-control form-control-sm text-start bg-white"
+            @click="openFileDialog"
+          >
+            <span v-if="fileNames">{{ fileNames }}</span>
+            <span v-else class="text-muted">
+              파일을 선택하세요. 10MB 초과 불가.
+            </span>
+          </button>
+        </div>
+        <div class="d-flex justify-content-end gap-2">
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary"
+            @click="onApprovalRequest"
+          >
+            승인요청
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            @click="onCancel"
+          >
+            취소
+          </button>
+        </div>
       </div>
     </div>
   </div>

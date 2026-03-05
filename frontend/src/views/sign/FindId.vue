@@ -5,70 +5,38 @@ import { useRouter } from "vue-router";
 import axios from "axios";
 import ArgonInput from "@/components/ArgonInput.vue";
 import ArgonButton from "@/components/ArgonButton.vue";
+import { useVerificationTimer } from "@/composables/useVerificationTimer";
 
 const body = document.getElementsByTagName("body")[0];
 const store = useStore();
 const routes = useRouter();
 
-const userId = ref("");
+const name = ref("");
 const email = ref("");
 const authCode = ref("");
-const memberError = ref("");
-const authMessage = ref("");
-const isVerified = ref(false);
-const newPassword = ref("");
-const confirmPassword = ref("");
-const pwErrorMessage = ref("");
+const memberError = ref(""); // 회원정보 불일치 경고
+const authMessage = ref(""); // 인증 성공/실패 메시지
+const foundId = ref(""); // 인증 성공 시 찾은 아이디
 const isSending = ref(false);
 const isVerifying = ref(false);
-const isResetting = ref(false);
-const hasSentOnce = ref(false);
-const countdown = ref(0);
-let timerInterval = null;
+const hasSentOnce = ref(false); // 한 번이라도 발송한 적 있으면 true (재인증 라벨용)
 
-const TIMER_STORAGE_KEY = "verifi_end_findpw";
-const TIMER_DURATION_SEC = 180;
-
-const getRemainingSeconds = (endTimeMs) =>
-  Math.max(0, Math.ceil((endTimeMs - Date.now()) / 1000));
-
-const stopTimer = () => {
-  if (timerInterval) {
-    clearInterval(timerInterval);
-    timerInterval = null;
-  }
-};
-
-const runTimerInterval = (endTimeMs) => {
-  stopTimer();
-  const tick = () => {
-    const remaining = getRemainingSeconds(endTimeMs);
-    countdown.value = remaining;
-    if (remaining <= 0) {
-      stopTimer();
-      sessionStorage.removeItem(TIMER_STORAGE_KEY);
-      authMessage.value = "인증시간이 만료되었습니다. 다시 요청해주세요.";
-      isVerified.value = false;
-      axios.post("/api/verifi/expire", { email: email.value, purpose: "i0_30" }).catch(() => {});
-    }
-  };
-  tick();
-  timerInterval = setInterval(tick, 1000);
-};
+// 인증번호 타이머 (만료 시각 저장으로 탭 이동 후 복귀 시 복구)
+const {
+  countdown,
+  startTimer,
+  restoreTimer,
+  stopTimer,
+} = useVerificationTimer("verifi_end_findid", 180);
 
 const sendButtonLabel = computed(() => {
   if (isSending.value) return "발송중...";
-  if (hasSentOnce.value && countdown.value === 0 && !isVerified.value)
-    return "재인증";
+  if (hasSentOnce.value && countdown.value === 0) return "재인증";
   return "인증번호 발송";
 });
 const sendButtonDisabled = computed(
-  () =>
-    isVerified.value ||
-    isSending.value ||
-    (hasSentOnce.value && countdown.value > 0),
+  () => isSending.value || (hasSentOnce.value && countdown.value > 0),
 );
-
 onBeforeMount(() => {
   store.state.hideConfigButton = true;
   store.state.showNavbar = false;
@@ -78,19 +46,12 @@ onBeforeMount(() => {
 });
 
 onMounted(() => {
-  const saved = sessionStorage.getItem(TIMER_STORAGE_KEY);
-  if (saved) {
-    const endTimeMs = parseInt(saved, 10);
-    if (endTimeMs > Date.now()) {
-      hasSentOnce.value = true;
-      countdown.value = getRemainingSeconds(endTimeMs);
-      runTimerInterval(endTimeMs);
-    } else {
-      sessionStorage.removeItem(TIMER_STORAGE_KEY);
-      countdown.value = 0;
-      hasSentOnce.value = true;
-    }
-  }
+  restoreTimer(() => {
+    authMessage.value = "인증시간이 만료되었습니다. 다시 요청해주세요.";
+    axios
+      .post("/api/verifi/expire", { email: email.value, purpose: "i0_20" })
+      .catch(() => {});
+  });
 });
 
 onBeforeUnmount(() => {
@@ -103,11 +64,11 @@ onBeforeUnmount(() => {
 });
 
 const goToLogin = () => routes.push("/signin");
-
+const goToResetPassword = () => routes.push("/find-password");
 // 인증번호 발송
 const sendVerificationCode = async () => {
-  if (!userId.value || !email.value) {
-    memberError.value = "아이디와 이메일을 입력해주세요.";
+  if (!name.value || !email.value) {
+    memberError.value = "이름과 이메일을 입력해주세요.";
     return;
   }
   memberError.value = "";
@@ -116,14 +77,19 @@ const sendVerificationCode = async () => {
   try {
     // 재인증 시도를 위해 기존 상태 초기화
     authCode.value = "";
-    isVerified.value = false;
-    await axios.post("/api/verifi/reset-pw", {
-      id: userId.value,
+    foundId.value = "";
+    await axios.post("/api/verifi/find-id", {
+      name: name.value,
       email: email.value,
     });
     authMessage.value = "인증번호가 발송되었습니다.";
     hasSentOnce.value = true;
-    startTimer();
+    startTimer(() => {
+      authMessage.value = "인증시간이 만료되었습니다. 다시 요청해주세요.";
+      axios
+        .post("/api/verifi/expire", { email: email.value, purpose: "i0_20" })
+        .catch(() => {});
+    });
   } catch (err) {
     memberError.value =
       err.response?.data?.message || "회원정보가 일치하지 않습니다.";
@@ -131,16 +97,8 @@ const sendVerificationCode = async () => {
     isSending.value = false;
   }
 };
-
-const startTimer = () => {
-  const endTimeMs = Date.now() + TIMER_DURATION_SEC * 1000;
-  sessionStorage.setItem(TIMER_STORAGE_KEY, String(endTimeMs));
-  countdown.value = TIMER_DURATION_SEC;
-  runTimerInterval(endTimeMs);
-};
-
 // 인증번호 확인
-const confirmVerification = async () => {
+const confirmVerificationCode = async () => {
   if (!authCode.value) {
     authMessage.value = "인증번호를 입력해주세요.";
     return;
@@ -148,51 +106,22 @@ const confirmVerification = async () => {
   authMessage.value = "";
   isVerifying.value = true;
   try {
-    await axios.post("/api/verifi/verify", {
+    const res = await axios.post("/api/verifi/verify", {
       email: email.value,
       code: authCode.value,
-      purpose: "i0_30",
+      purpose: "i0_20",
     });
-    isVerified.value = true;
+    foundId.value = res.data.m_id || "";
     authMessage.value = "인증이 완료되었습니다.";
     stopTimer();
-    sessionStorage.removeItem(TIMER_STORAGE_KEY);
   } catch (err) {
     authMessage.value =
-      err.response?.data?.message || "인증번호가 일치하지 않습니다. 인증 번호를 다시 발급받아주세요.";
+      err.response?.data?.message ||
+      "인증번호가 일치하지 않습니다. 인증 번호를 다시 발급받아주세요.";
     stopTimer();
-    sessionStorage.removeItem(TIMER_STORAGE_KEY);
     countdown.value = 0;
   } finally {
     isVerifying.value = false;
-  }
-};
-
-// 비밀번호 재설정
-const handleResetPassword = async () => {
-  if (!newPassword.value) {
-    pwErrorMessage.value = "새 비밀번호를 입력해주세요.";
-    return;
-  }
-  if (newPassword.value !== confirmPassword.value) {
-    pwErrorMessage.value = "비밀번호가 일치하지 않습니다.";
-    return;
-  }
-  pwErrorMessage.value = "";
-  isResetting.value = true;
-  try {
-    await axios.post("/api/verifi/reset-password", {
-      id: userId.value,
-      email: email.value,
-      newPw: newPassword.value,
-    });
-    alert("비밀번호가 변경되었습니다.");
-    routes.push("/signin");
-  } catch (err) {
-    pwErrorMessage.value =
-      err.response?.data?.message || "비밀번호 변경에 실패했습니다.";
-  } finally {
-    isResetting.value = false;
   }
 };
 </script>
@@ -216,28 +145,27 @@ const handleResetPassword = async () => {
                 <div
                   class="pb-0 card-header text-center bg-transparent border-0"
                 >
-                  <h4 class="font-weight-bolder">비밀번호 재설정</h4>
+                  <h4 class="font-weight-bolder">아이디 찾기</h4>
                   <p class="mb-0 text-sm">
-                    본인 확인을 위해 정보를 입력해주세요.
+                    가입 시 등록한 정보를 입력해주세요.
                   </p>
                 </div>
                 <div class="card-body">
                   <form role="form" @submit.prevent>
-                    <!-- 아이디 입력 -->
+                    <!-- 이름 입력 -->
                     <div class="mb-3">
-                      <label class="form-label text-sm">아이디</label>
+                      <label class="form-label text-sm">이름</label>
                       <argon-input
-                        v-model="userId"
+                        v-model="name"
                         type="text"
-                        placeholder="아이디를 입력하세요"
-                        name="userid"
+                        placeholder="성함을 입력하세요"
+                        name="name"
                         size="lg"
                         class="rounded-0"
-                        :disabled="isVerified"
                       />
                     </div>
 
-                    <!-- 이메일 입력 + 인증번호 발송 -->
+                    <!-- 이메일 입력 + 인증번호 발송 버튼 -->
                     <div class="mb-3">
                       <label class="form-label text-sm">등록된 이메일</label>
                       <div class="d-flex gap-2">
@@ -249,7 +177,6 @@ const handleResetPassword = async () => {
                           name="email"
                           size="lg"
                           class="rounded-0 flex-grow-1 mb-0"
-                          :disabled="isVerified"
                         />
                         <argon-button
                           type="button"
@@ -272,11 +199,11 @@ const handleResetPassword = async () => {
                       </p>
                     </div>
 
-                    <!-- 인증번호 확인란 -->
-                    <div class="mb-4">
+                    <!-- 인증번호 입력 + 확인 버튼 -->
+                    <div class="mb-3">
                       <label
                         class="form-label text-sm"
-                        :disabled="isVerified || countdown === 0"
+                        :disabled="countdown === 0"
                         >인증번호 입력</label
                       >
                       <div class="d-flex gap-2">
@@ -288,7 +215,6 @@ const handleResetPassword = async () => {
                           name="authCode"
                           size="lg"
                           class="rounded-0 flex-grow-1 mb-0"
-                          :disabled="isVerified"
                         />
                         <argon-button
                           type="button"
@@ -297,10 +223,10 @@ const handleResetPassword = async () => {
                           size="sm"
                           class="rounded-0 text-nowrap px-3"
                           style="height: 46px"
-                          :disabled="isVerified || isVerifying"
-                          @click="confirmVerification"
+                          :disabled="isVerifying"
+                          @click="confirmVerificationCode"
                         >
-                          {{ isVerifying ? "확인중..." : "인증확인" }}
+                          {{ isVerifying ? "확인중..." : "인증" }}
                         </argon-button>
                       </div>
                       <p
@@ -316,7 +242,7 @@ const handleResetPassword = async () => {
                         {{ authMessage }}
                       </p>
                       <p
-                        v-if="countdown > 0 && !isVerified"
+                        v-if="countdown > 0 && !foundId"
                         class="text-danger text-xs mt-1 mb-0 ps-1"
                       >
                         남은 시간 :
@@ -325,46 +251,10 @@ const handleResetPassword = async () => {
                       </p>
                     </div>
 
-                    <!-- 인증 성공 시 새 비밀번호 입력 -->
-                    <div v-if="isVerified" class="mb-4">
-                      <div class="mb-3">
-                        <label class="form-label text-sm">새 비밀번호</label>
-                        <argon-input
-                          v-model="newPassword"
-                          type="password"
-                          placeholder="새 비밀번호"
-                          size="lg"
-                          class="rounded-0"
-                        />
-                      </div>
-                      <div class="mb-3">
-                        <label class="form-label text-sm">비밀번호 확인</label>
-                        <argon-input
-                          v-model="confirmPassword"
-                          type="password"
-                          placeholder="비밀번호 확인"
-                          size="lg"
-                          class="rounded-0"
-                        />
-                        <p
-                          v-if="pwErrorMessage"
-                          class="text-danger text-xs mt-1 mb-0 ps-1"
-                        >
-                          {{ pwErrorMessage }}
-                        </p>
-                      </div>
-                      <argon-button
-                        type="button"
-                        fullWidth
-                        variant="gradient"
-                        color="success"
-                        class="rounded-0 py-2 mb-3"
-                        size="lg"
-                        :disabled="isResetting"
-                        @click="handleResetPassword"
-                      >
-                        {{ isResetting ? "처리중..." : "비밀번호 재설정" }}
-                      </argon-button>
+                    <!-- 찾은 아이디 표시 -->
+                    <div v-if="foundId" class="mb-3 text-center">
+                      <p class="text-sm">회원님의 아이디는 다음과 같습니다.</p>
+                      <h5 class="font-weight-bolder">{{ foundId }}</h5>
                     </div>
 
                     <div class="text-center mt-4">
@@ -380,6 +270,20 @@ const handleResetPassword = async () => {
                         로그인 화면으로
                       </argon-button>
                     </div>
+
+                    <div class="text-center mt-2">
+                      <argon-button
+                        type="button"
+                        fullWidth
+                        variant="outline"
+                        color="success"
+                        class="rounded-0 py-2"
+                        size="lg"
+                        @click="goToResetPassword"
+                      >
+                        비밀번호 찾기
+                      </argon-button>
+                    </div>
                   </form>
                 </div>
               </div>
@@ -390,3 +294,4 @@ const handleResetPassword = async () => {
     </section>
   </main>
 </template>
+

@@ -66,7 +66,7 @@ export default [
       {
         path: "",
         name: "managermanage",
-        component: () => import("@/views/ManagerControl.vue"),
+        component: () => import("@/views/admin/ManagerControl.vue"),
       },
     ],
   },
@@ -78,7 +78,7 @@ export default [
       {
         path: "",
         name: "applicantmanage",
-        component: () => import("@/views/ApplicantControl.vue"),
+        component: () => import("@/views/admin/ApplicantControl.vue"),
       },
     ],
   },
@@ -90,7 +90,7 @@ export default [
       {
         path: "",
         name: "organmanagermanage",
-        component: () => import("@/views/OrganManagerManage.vue"),
+        component: () => import("@/views/admin/OrganManagerManage.vue"),
       },
     ],
   },

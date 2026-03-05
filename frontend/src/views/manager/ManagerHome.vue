@@ -1,10 +1,11 @@
-<!-- 업로드용 임시 주석입니다. 삭제가능. -->
 <!-- 담당자(a0_30) 홈: 로그인한 담당자 m_no = support.mgr_no 로 담당 지원 목록 표시 -->
 <script setup>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "@/store/auth";
-import TablePagination from "@/views/components/TablePagination.vue";
+import { usePagination } from "@/composables/usePagination";
+import SearchNavbar from "@/views/components/SearchNavbar.vue";
+import MainTable from "@/views/components/MainTable.vue";
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -18,7 +19,13 @@ const filters = ref({
   dateTo: "",
   targetName: "",
   applicantName: "",
-  stage: "전체",
+  stage: {
+    review: false,
+    wait: false,
+    apply: false,
+    approve: false,
+    reject: false,
+  },
   progress: {
     review: false,
     approve: false,
@@ -27,14 +34,20 @@ const filters = ref({
   },
 });
 
-/** 검색 버튼/엔터 시에만 적용 */
+/** 검색 버튼 클릭 시에만 적용되는 조건 */
 const appliedFilters = ref({
   dateFrom: "",
   dateTo: "",
   targetName: "",
   applicantName: "",
   managerName: "",
-  stage: "전체",
+  stage: {
+    review: false,
+    wait: false,
+    apply: false,
+    approve: false,
+    reject: false,
+  },
   progress: {
     review: false,
     approve: false,
@@ -54,7 +67,15 @@ function formatApplyDate(val) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** 대기단계 코드 → 한글 (e0_00 검토, e0_10 승인 등) */
+function stageLabel(codeOrName) {
+  const map = { e0_00: "검토", e0_10: "승인", e0_80: "보완", e0_99: "반려", e1_00: "대기", e1_10: "신청", e1_20: "승인", e1_99: "반려" };
+  const s = (codeOrName || "").trim();
+  return map[s] || s || "";
+}
+
 function mapApiRow(r, index) {
+  const rawStage = r.stage_name || r.req_yn || "";
   return {
     no: index + 1,
     sup_code: r.sup_code,
@@ -62,7 +83,7 @@ function mapApiRow(r, index) {
     applicantName: r.applicant_name || "",
     applyDate: formatApplyDate(r.sup_day),
     managerName: r.manager_name || "",
-    stage: r.stage_name || r.req_yn || "",
+    stage: stageLabel(rawStage) || rawStage,
     progress: {
       review: Number(r.review_cnt) || 0,
       approve: Number(r.approve_cnt) || 0,
@@ -119,7 +140,11 @@ const onReset = () => {
   filters.value.dateTo = "";
   filters.value.targetName = "";
   filters.value.applicantName = "";
-  filters.value.stage = "전체";
+  filters.value.stage.review = false;
+  filters.value.stage.wait = false;
+  filters.value.stage.apply = false;
+  filters.value.stage.approve = false;
+  filters.value.stage.reject = false;
   filters.value.progress.review = false;
   filters.value.progress.approve = false;
   filters.value.progress.reject = false;
@@ -142,10 +167,20 @@ const filteredRows = computed(() => {
       return false;
     if (f.applicantName && !String(r.applicantName).includes(f.applicantName))
       return false;
-    if (f.stage !== "전체" && r.stage !== f.stage) return false;
+    const stageAny =
+      f.stage.review || f.stage.wait || f.stage.apply || f.stage.approve || f.stage.reject;
+    if (stageAny) {
+      const allowed = [];
+      if (f.stage.review) allowed.push("검토");
+      if (f.stage.wait) allowed.push("대기");
+      if (f.stage.apply) allowed.push("신청");
+      if (f.stage.approve) allowed.push("승인");
+      if (f.stage.reject) allowed.push("반려");
+      if (allowed.length && !allowed.includes(r.stage)) return false;
+    }
     const pc = f.progress;
-    const any = pc.review || pc.approve || pc.reject || pc.done;
-    if (any) {
+    const progressAny = pc.review || pc.approve || pc.reject || pc.done;
+    if (progressAny) {
       if (pc.review && (r.progress?.review ?? 0) <= 0) return false;
       if (pc.approve && (r.progress?.approve ?? 0) <= 0) return false;
       if (pc.reject && (r.progress?.reject ?? 0) <= 0) return false;
@@ -155,22 +190,14 @@ const filteredRows = computed(() => {
   });
 });
 
-// 페이징: 10건씩, 번호는 최근 건일수록 크게
-const page = ref(1);
-const pageSize = 10;
-const totalRows = computed(() => filteredRows.value.length);
-const pagedRows = computed(() => {
-  const start = (page.value - 1) * pageSize;
-  return filteredRows.value.slice(start, start + pageSize);
-});
-
-const rowDisplayNo = (indexInPage) => {
-  return totalRows.value - ((page.value - 1) * pageSize + indexInPage);
-};
-
-watch(filteredRows, () => {
-  page.value = 1;
-});
+// 페이징: 공통 composable 사용 (페이지당 10건, 번호는 전체 건수 기준 내림차순)
+const {
+  page,
+  pageSize,
+  totalItems: totalRows,
+  pagedItems: pagedRows,
+  rowDisplayNo,
+} = usePagination(() => filteredRows.value, 10);
 
 onMounted(() => {
   loadManagerList();
@@ -207,312 +234,254 @@ const goSupportHistory = (row) => {
 <template>
   <div class="py-4 container-fluid">
     <div class="row">
-      <div class="col-lg-3 mb-4">
-        <div class="card">
-          <div class="card-header pb-0">
-            <h6 class="mb-0">상세 검색</h6>
-            <p v-if="loginMName" class="text-xs text-muted mb-0 mt-1">
-              담당자: <strong>{{ loginMName }}</strong>
-            </p>
-          </div>
-          <form class="card-body" @submit.prevent="onSearch">
-            <label class="form-label text-sm">지원신청일</label>
-            <div class="d-flex gap-2">
-              <input
-                v-model="filters.dateFrom"
-                type="date"
-                class="form-control form-control-sm"
-              />
-              <input
-                v-model="filters.dateTo"
-                type="date"
-                class="form-control form-control-sm"
-              />
-            </div>
-            <hr class="horizontal dark my-3" />
-            <label class="form-label text-sm">지원대상자명</label>
-            <input
-              v-model="filters.targetName"
-              type="text"
-              class="form-control form-control-sm"
-              placeholder="보호대상자명"
-            />
-            <div class="mt-3">
-              <label class="form-label text-sm">지원자명</label>
-              <input
-                v-model="filters.applicantName"
-                type="text"
-                class="form-control form-control-sm"
-                placeholder="보호자 이름"
-              />
-            </div>
-            <hr class="horizontal dark my-3" />
-            <label class="form-label text-sm">대기단계</label>
-            <div class="d-flex flex-wrap gap-2">
-              <button
-                class="btn btn-sm mb-0"
-                :class="
-                  filters.stage === '전체'
-                    ? 'btn-warning'
-                    : 'btn-outline-secondary'
-                "
-                @click="filters.stage = '전체'"
-              >
-                전체
-              </button>
-              <button
-                class="btn btn-sm mb-0"
-                :class="
-                  filters.stage === '검토 중'
-                    ? 'btn-warning'
-                    : 'btn-outline-secondary'
-                "
-                @click="filters.stage = '검토 중'"
-              >
-                검토 중
-              </button>
-              <button
-                class="btn btn-sm mb-0"
-                :class="
-                  filters.stage === '대기'
-                    ? 'btn-warning'
-                    : 'btn-outline-secondary'
-                "
-                @click="filters.stage = '대기'"
-              >
-                대기
-              </button>
-              <button
-                class="btn btn-sm mb-0"
-                :class="
-                  filters.stage === '긴급'
-                    ? 'btn-warning'
-                    : 'btn-outline-secondary'
-                "
-                @click="filters.stage = '긴급'"
-              >
-                긴급
-              </button>
-              <button
-                class="btn btn-sm mb-0"
-                :class="
-                  filters.stage === '종결'
-                    ? 'btn-warning'
-                    : 'btn-outline-secondary'
-                "
-                @click="filters.stage = '종결'"
-              >
-                종결
-              </button>
-            </div>
-            <hr class="horizontal dark my-3" />
-            <label class="form-label text-sm">결재/결과 진행</label>
-            <div class="form-check">
-              <input
-                id="m-p1"
-                class="form-check-input"
-                type="checkbox"
-                v-model="filters.progress.review"
-              />
-              <label class="form-check-label text-sm" for="m-p1">검토</label>
-            </div>
-            <div class="form-check">
-              <input
-                id="m-p2"
-                class="form-check-input"
-                type="checkbox"
-                v-model="filters.progress.approve"
-              />
-              <label class="form-check-label text-sm" for="m-p2">승인</label>
-            </div>
-            <div class="form-check">
-              <input
-                id="m-p3"
-                class="form-check-input"
-                type="checkbox"
-                v-model="filters.progress.reject"
-              />
-              <label class="form-check-label text-sm" for="m-p3">반려</label>
-            </div>
-            <div class="form-check">
-              <input
-                id="m-p4"
-                class="form-check-input"
-                type="checkbox"
-                v-model="filters.progress.done"
-              />
-              <label class="form-check-label text-sm" for="m-p4">결과</label>
-            </div>
-            <div class="mt-4 d-grid gap-2">
-              <button class="btn btn-success mb-0" @click="onSearch">
-                검색
-              </button>
-              <button class="btn btn-outline-secondary mb-0" @click="onReset">
-                초기화
-              </button>
-            </div>
-          </form>
+      <SearchNavbar
+        :subtitle="loginMName ? `담당자: ${loginMName}` : ''"
+        @search="onSearch"
+        @reset="onReset"
+      >
+        <label class="form-label text-sm">지원신청일</label>
+        <div class="d-flex gap-2">
+          <input
+            v-model="filters.dateFrom"
+            type="date"
+            class="form-control form-control-sm"
+          />
+          <input
+            v-model="filters.dateTo"
+            type="date"
+            class="form-control form-control-sm"
+          />
         </div>
-      </div>
-
-      <div class="col-lg-9">
-        <div class="card">
-          <div
-            class="card-header pb-0 d-flex align-items-center justify-content-between"
+        <hr class="horizontal dark my-3" />
+        <label class="form-label text-sm">지원대상자명</label>
+        <input
+          v-model="filters.targetName"
+          type="text"
+          class="form-control form-control-sm"
+          placeholder="보호대상자명"
+        />
+        <div class="mt-3">
+          <label class="form-label text-sm">지원자명</label>
+          <input
+            v-model="filters.applicantName"
+            type="text"
+            class="form-control form-control-sm"
+            placeholder="보호자 이름"
+          />
+        </div>
+        <hr class="horizontal dark my-3" />
+        <label class="form-label text-sm">대기단계</label>
+        <div class="d-flex flex-wrap gap-2">
+          <button
+            class="btn btn-sm mb-0"
+            :class="
+              filters.stage === '전체' ? 'btn-warning' : 'btn-outline-secondary'
+            "
+            @click="filters.stage = '전체'"
           >
-            <h6 class="mb-0">담당 지원신청 내역</h6>
-            <span v-if="loginMName" class="text-xs text-muted">
-              {{ loginMName }} 담당 건만 표시됩니다
-            </span>
-          </div>
-          <div class="card-body pt-3">
-            <p v-if="listError" class="text-danger small mb-2">
-              {{ listError }}
-            </p>
-            <div class="table-responsive">
-              <table class="table align-items-center">
-                <thead>
-                  <tr>
-                    <th class="text-center text-xs">번호</th>
-                    <th class="text-center text-xs">지원대상자명</th>
-                    <th class="text-center text-xs">지원자명</th>
-                    <th class="text-center text-xs">지원신청일</th>
-                    <th class="text-center text-xs">지원신청서</th>
-                    <th class="text-center text-xs">담당자</th>
-                    <th class="text-center text-xs">대기단계</th>
-                    <th class="text-center text-xs">결재/결과 진행</th>
-                    <th class="text-center text-xs">지원계획</th>
-                    <th class="text-center text-xs">지원결과</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-if="listLoading">
-                    <td colspan="10" class="text-center text-muted py-4">
-                      불러오는 중...
-                    </td>
-                  </tr>
-                  <tr v-else-if="filteredRows.length === 0">
-                    <td
-                      colspan="10"
-                      class="text-center text-sm text-muted py-4"
-                    >
-                      {{
-                        rows.length === 0
-                          ? "담당으로 지정된 지원신청이 없습니다."
-                          : "검색 조건에 맞는 결과가 없습니다."
-                      }}
-                    </td>
-                  </tr>
-                  <tr
-                    v-else
-                    v-for="(row, idx) in pagedRows"
-                    :key="row.sup_code || row.no"
-                  >
-                    <td class="text-center text-sm">
-                      {{ rowDisplayNo(idx) }}
-                    </td>
-                    <td class="text-center text-sm">
-                      <span v-if="!row.targetName">-</span>
-                      <a
-                        v-else
-                        href="javascript:;"
-                        class="text-sm text-primary text-decoration-underline"
-                        @click.prevent="goSupportHistory(row)"
-                      >
-                        {{ row.targetName }}
-                      </a>
-                    </td>
-                    <td class="text-center text-sm">
-                      {{ row.applicantName || "-" }}
-                    </td>
-                    <td class="text-center text-sm">{{ row.applyDate }}</td>
-                    <td class="text-center">
-                      <button
-                        class="btn btn-sm btn-primary mb-0"
-                        @click="viewApply(row)"
-                      >
-                        보기
-                      </button>
-                    </td>
-                    <td class="text-center text-sm">
-                      {{ row.managerName || "미배정" }}
-                    </td>
-                    <td class="text-center text-sm">{{ row.stage }}</td>
-                    <td class="text-center text-sm">
-                      <div class="d-flex flex-column align-items-center gap-1">
-                        <div
-                          class="d-flex justify-content-between"
-                          style="width: 120px"
-                        >
-                          <span class="text-xs">검토</span>
-                          <span class="text-xs text-muted"
-                            >{{ row.progress.review }}건</span
-                          >
-                        </div>
-                        <div
-                          class="d-flex justify-content-between"
-                          style="width: 120px"
-                        >
-                          <span class="text-xs">승인</span>
-                          <span class="text-xs text-muted"
-                            >{{ row.progress.approve }}건</span
-                          >
-                        </div>
-                        <div
-                          class="d-flex justify-content-between"
-                          style="width: 120px"
-                        >
-                          <span class="text-xs">반려</span>
-                          <span class="text-xs text-muted"
-                            >{{ row.progress.reject }}건</span
-                          >
-                        </div>
-                        <div
-                          class="d-flex justify-content-between"
-                          style="width: 120px"
-                        >
-                          <span class="text-xs">결과</span>
-                          <span class="text-xs text-muted"
-                            >{{ row.progress.done }}건</span
-                          >
-                        </div>
-                      </div>
-                    </td>
-                    <td class="text-center">
-                      <button
-                        class="btn btn-sm btn-primary mb-0"
-                        @click="viewPlan(row)"
-                      >
-                        보기
-                      </button>
-                    </td>
-                    <td class="text-center">
-                      <button
-                        class="btn btn-sm mb-0"
-                        :class="
-                          row.canResultView
-                            ? 'btn-primary'
-                            : 'btn-secondary disabled'
-                        "
-                        @click="row.canResultView && viewResult(row)"
-                      >
-                        보기
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <TablePagination
-              v-if="totalRows > pageSize"
-              v-model:page="page"
-              :total="totalRows"
-              :page-size="pageSize"
-            />
-          </div>
+            전체
+          </button>
+          <button
+            class="btn btn-sm mb-0"
+            :class="
+              filters.stage === '검토 중'
+                ? 'btn-warning'
+                : 'btn-outline-secondary'
+            "
+            @click="filters.stage = '검토 중'"
+          >
+            검토 중
+          </button>
+          <button
+            class="btn btn-sm mb-0"
+            :class="
+              filters.stage === '대기' ? 'btn-warning' : 'btn-outline-secondary'
+            "
+            @click="filters.stage = '대기'"
+          >
+            대기
+          </button>
+          <button
+            class="btn btn-sm mb-0"
+            :class="
+              filters.stage === '긴급' ? 'btn-warning' : 'btn-outline-secondary'
+            "
+            @click="filters.stage = '긴급'"
+          >
+            긴급
+          </button>
+          <button
+            class="btn btn-sm mb-0"
+            :class="
+              filters.stage === '종결' ? 'btn-warning' : 'btn-outline-secondary'
+            "
+            @click="filters.stage = '종결'"
+          >
+            종결
+          </button>
         </div>
-      </div>
+        <hr class="horizontal dark my-3" />
+        <label class="form-label text-sm">결재/결과 진행</label>
+        <div class="form-check">
+          <input
+            id="m-p1"
+            class="form-check-input"
+            type="checkbox"
+            v-model="filters.progress.review"
+          />
+          <label class="form-check-label text-sm" for="m-p1">검토</label>
+        </div>
+        <div class="form-check">
+          <input
+            id="m-p2"
+            class="form-check-input"
+            type="checkbox"
+            v-model="filters.progress.approve"
+          />
+          <label class="form-check-label text-sm" for="m-p2">승인</label>
+        </div>
+        <div class="form-check">
+          <input
+            id="m-p3"
+            class="form-check-input"
+            type="checkbox"
+            v-model="filters.progress.reject"
+          />
+          <label class="form-check-label text-sm" for="m-p3">반려</label>
+        </div>
+        <div class="form-check">
+          <input
+            id="m-p4"
+            class="form-check-input"
+            type="checkbox"
+            v-model="filters.progress.done"
+          />
+          <label class="form-check-label text-sm" for="m-p4">결과</label>
+        </div>
+      </SearchNavbar>
+
+      <MainTable
+        title="담당 지원신청 내역"
+        :subtitle="loginMName ? `${loginMName} 담당 건만 표시됩니다` : ''"
+        :list-error="listError"
+        :loading="listLoading"
+        :rows-count="filteredRows.length"
+        :empty-text="
+          rows.length === 0
+            ? '담당으로 지정된 지원신청이 없습니다.'
+            : '검색 조건에 맞는 결과가 없습니다.'
+        "
+        :colspan="10"
+        v-model:page="page"
+        :page-size="pageSize"
+        :total="totalRows"
+      >
+        <template #header>
+          <th class="text-center text-xs">번호</th>
+          <th class="text-center text-xs">지원대상자명</th>
+          <th class="text-center text-xs">지원자명</th>
+          <th class="text-center text-xs">지원신청일</th>
+          <th class="text-center text-xs">지원신청서</th>
+          <th class="text-center text-xs">담당자</th>
+          <th class="text-center text-xs">대기단계</th>
+          <th class="text-center text-xs">결재/결과 진행</th>
+          <th class="text-center text-xs">지원계획</th>
+          <th class="text-center text-xs">지원결과</th>
+        </template>
+        <template #body>
+          <tr v-for="(row, idx) in pagedRows" :key="row.sup_code || row.no">
+            <td class="text-center text-sm">
+              {{ rowDisplayNo(idx) }}
+            </td>
+            <td class="text-center text-sm">
+              <span v-if="!row.targetName">-</span>
+              <a
+                v-else
+                href="javascript:;"
+                class="text-sm text-primary text-decoration-underline"
+                @click.prevent="goSupportHistory(row)"
+              >
+                {{ row.targetName }}
+              </a>
+            </td>
+            <td class="text-center text-sm">
+              {{ row.applicantName || "-" }}
+            </td>
+            <td class="text-center text-sm">{{ row.applyDate }}</td>
+            <td class="text-center">
+              <button
+                class="btn btn-sm btn-primary mb-0"
+                @click="viewApply(row)"
+              >
+                보기
+              </button>
+            </td>
+            <td class="text-center text-sm">
+              {{ row.managerName || "미배정" }}
+            </td>
+            <td class="text-center text-sm">{{ row.stage }}</td>
+            <td class="text-center text-sm">
+              <div class="d-flex flex-column align-items-center gap-1">
+                <div
+                  class="d-flex justify-content-between"
+                  style="width: 120px"
+                >
+                  <span class="text-xs">검토</span>
+                  <span class="text-xs text-muted"
+                    >{{ row.progress.review }}건</span
+                  >
+                </div>
+                <div
+                  class="d-flex justify-content-between"
+                  style="width: 120px"
+                >
+                  <span class="text-xs">승인</span>
+                  <span class="text-xs text-muted"
+                    >{{ row.progress.approve }}건</span
+                  >
+                </div>
+                <div
+                  class="d-flex justify-content-between"
+                  style="width: 120px"
+                >
+                  <span class="text-xs">반려</span>
+                  <span class="text-xs text-muted"
+                    >{{ row.progress.reject }}건</span
+                  >
+                </div>
+                <div
+                  class="d-flex justify-content-between"
+                  style="width: 120px"
+                >
+                  <span class="text-xs">결과</span>
+                  <span class="text-xs text-muted"
+                    >{{ row.progress.done }}건</span
+                  >
+                </div>
+              </div>
+            </td>
+            <td class="text-center">
+              <button
+                class="btn btn-sm btn-primary mb-0"
+                @click="viewPlan(row)"
+              >
+                보기
+              </button>
+            </td>
+            <td class="text-center">
+              <button
+                class="btn btn-sm mb-0"
+                :class="
+                  row.canResultView ? 'btn-primary' : 'btn-secondary disabled'
+                "
+                @click="row.canResultView && viewResult(row)"
+              >
+                보기
+              </button>
+            </td>
+          </tr>
+        </template>
+      </MainTable>
     </div>
   </div>
 </template>

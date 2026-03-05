@@ -318,3 +318,4 @@ const saveInfo = async () => {
   box-shadow: 0 6px 20px rgba(45, 206, 137, 0.5);
 }
 </style>
+

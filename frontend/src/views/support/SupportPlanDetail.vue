@@ -411,8 +411,8 @@ defineExpose({ reloadFiles: loadPlanFiles });
                 :title="formatFileName(file)"
                 @click="downloadFile(file.file_code)"
               >
-                <span class="file-dl-name">{{ fileBaseName(file) }}</span
-                ><span class="file-dl-ext">{{ fileExt(file) }}</span>
+                <span class="file-dl-name">{{ fileBaseName(file) }}</span>
+                <span class="file-dl-ext">{{ fileExt(file) }}</span>
               </button>
             </div>
           </template>
