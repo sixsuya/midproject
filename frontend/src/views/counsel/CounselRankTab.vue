@@ -1,6 +1,7 @@
 <!-- 우선순위 탭 -->
 <script setup>
 import RankDetail from "@/views/rank/RankDetail.vue";
+import ArgonButton from "@/components/ArgonButton.vue";
 
 defineProps({
   rankData: { type: Object, default: null },
@@ -26,13 +27,15 @@ const emit = defineEmits([
 <template>
   <div class="d-flex align-items-center justify-content-between mb-3">
     <h6 class="text-sm text-uppercase text-muted mb-0">우선순위</h6>
-    <button
+    <ArgonButton
       type="button"
-      class="btn btn-sm btn-outline-secondary"
+      size="sm"
+      variant="outline"
+      color="secondary"
       @click="emit('refresh')"
     >
       새로고침
-    </button>
+    </ArgonButton>
   </div>
   <p v-if="rankLoading" class="text-muted text-sm mb-0">로딩 중...</p>
   <p v-else-if="!rankData" class="text-muted text-sm mb-0">

@@ -5,6 +5,8 @@ import { useAuthStore } from "@/store/auth";
 import { usePagination } from "@/composables/usePagination";
 import SearchNavbar from "@/views/components/SearchNavbar.vue";
 import MainTable from "@/views/components/MainTable.vue";
+import ArgonButton from "@/components/ArgonButton.vue";
+import ArgonInput from "@/components/ArgonInput.vue";
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -303,101 +305,91 @@ const viewResult = (row) => {
         <!-- 날짜 -->
         <label class="form-label text-sm">작성일</label>
         <div class="d-flex gap-2">
-          <input
-            v-model="filters.dateFrom"
-            type="date"
-            class="form-control form-control-sm"
-          />
-          <input
-            v-model="filters.dateTo"
-            type="date"
-            class="form-control form-control-sm"
-          />
+          <ArgonInput v-model="filters.dateFrom" type="date" size="sm" />
+          <ArgonInput v-model="filters.dateTo" type="date" size="sm" />
         </div>
 
         <hr class="horizontal dark my-3" />
 
         <!-- 지원대상자 -->
         <label class="form-label text-sm">지원대상자</label>
-        <input
+        <ArgonInput
           v-model="filters.targetName"
           type="text"
-          class="form-control form-control-sm"
+          size="sm"
           placeholder="예) 홍길동"
         />
 
         <div class="mt-3">
           <label class="form-label text-sm">지원자명</label>
-          <input
+          <ArgonInput
             v-model="filters.applicantName"
             type="text"
-            class="form-control form-control-sm"
+            size="sm"
             placeholder="예) 보호자 이름"
           />
         </div>
 
         <div class="mt-3">
           <label class="form-label text-sm">담당자명</label>
-          <input
+          <ArgonInput
             v-model="filters.managerName"
             type="text"
-            class="form-control form-control-sm"
+            size="sm"
             placeholder="예) 담당자 이름"
           />
         </div>
 
         <hr class="horizontal dark my-3" />
 
-        <!-- 대기단계 (PDF처럼 버튼 느낌) -->
+        <!-- 대기단계 -->
         <label class="form-label text-sm">대기단계</label>
         <div class="d-flex flex-wrap gap-2">
-          <button
-            class="btn btn-sm mb-0"
-            :class="
-              filters.stage === '전체' ? 'btn-warning' : 'btn-outline-secondary'
-            "
+          <ArgonButton
+            class="mb-0"
+            size="sm"
+            :color="filters.stage === '전체' ? 'warning' : 'secondary'"
+            :variant="filters.stage === '전체' ? 'fill' : 'outline'"
             @click="filters.stage = '전체'"
           >
             전체
-          </button>
-          <button
-            class="btn btn-sm mb-0"
-            :class="
-              filters.stage === '검토 중'
-                ? 'btn-warning'
-                : 'btn-outline-secondary'
-            "
+          </ArgonButton>
+          <ArgonButton
+            class="mb-0"
+            size="sm"
+            :color="filters.stage === '검토 중' ? 'warning' : 'secondary'"
+            :variant="filters.stage === '검토 중' ? 'fill' : 'outline'"
             @click="filters.stage = '검토 중'"
           >
             검토 중
-          </button>
-          <button
-            class="btn btn-sm mb-0"
-            :class="
-              filters.stage === '대기' ? 'btn-warning' : 'btn-outline-secondary'
-            "
+          </ArgonButton>
+          <ArgonButton
+            class="mb-0"
+            size="sm"
+            :color="filters.stage === '대기' ? 'warning' : 'secondary'"
+            :variant="filters.stage === '대기' ? 'fill' : 'outline'"
             @click="filters.stage = '대기'"
           >
             대기
-          </button>
-          <button
-            class="btn btn-sm mb-0"
-            :class="
-              filters.stage === '긴급' ? 'btn-warning' : 'btn-outline-secondary'
-            "
+          </ArgonButton>
+          <ArgonButton
+            class="mb-0"
+            size="sm"
+            :color="filters.stage === '긴급' ? 'warning' : 'secondary'"
+            :variant="filters.stage === '긴급' ? 'fill' : 'outline'"
             @click="filters.stage = '긴급'"
           >
             긴급
-          </button>
-          <button
-            class="btn btn-sm mb-0"
-            :class="
-              filters.stage === '종결' ? 'btn-warning' : 'btn-outline-secondary'
-            "
+          </ArgonButton>
+          <ArgonButton
+            class="mb-0"
+            size="sm"
+            :color="filters.stage === '종결' ? 'warning' : 'secondary'"
+            :variant="filters.stage === '종결' ? 'fill' : 'outline'"
             @click="filters.stage = '종결'"
           >
             종결
-          </button>
+          </ArgonButton>
         </div>
 
         <hr class="horizontal dark my-3" />
@@ -474,12 +466,9 @@ const viewResult = (row) => {
             <td class="text-center text-sm">{{ row.applyDate }}</td>
 
             <td class="text-center">
-              <button
-                class="btn btn-sm btn-primary mb-0"
-                @click="viewApply(row)"
-              >
+              <ArgonButton size="sm" color="primary" class="mb-0" @click="viewApply(row)">
                 보기
-              </button>
+              </ArgonButton>
             </td>
 
             <td class="text-center text-sm">
@@ -503,30 +492,36 @@ const viewResult = (row) => {
                         {{ m.m_nm }} ({{ m.organ_name || m.m_org || "" }})
                       </option>
                     </select>
-                    <button
+                    <ArgonButton
                       type="button"
-                      class="btn btn-sm btn-primary"
+                      size="sm"
+                      color="primary"
                       @click="confirmAssignManager"
                     >
                       배정
-                    </button>
-                    <button
+                    </ArgonButton>
+                    <ArgonButton
                       type="button"
-                      class="btn btn-sm btn-outline-secondary"
+                      size="sm"
+                      variant="outline"
+                      color="secondary"
                       @click="cancelAssignManager"
                     >
                       취소
-                    </button>
+                    </ArgonButton>
                   </div>
                 </div>
-                <button
+                <ArgonButton
                   v-else
                   type="button"
-                  class="btn btn-link btn-sm p-0 text-danger text-decoration-none"
+                  size="sm"
+                  variant="outline"
+                  color="danger"
+                  class="p-0 text-decoration-none"
                   @click="beginAssignManager(row)"
                 >
                   미배정
-                </button>
+                </ArgonButton>
               </template>
             </td>
             <td class="text-center text-sm">{{ row.stage }}</td>
@@ -573,39 +568,39 @@ const viewResult = (row) => {
             </td>
 
             <td class="text-center">
-              <button
-                class="btn btn-sm mb-0"
-                :class="
-                  row.canPlanView ? 'btn-primary' : 'btn-secondary disabled'
-                "
+              <ArgonButton
+                size="sm"
+                class="mb-0"
+                :color="row.canPlanView ? 'primary' : 'secondary'"
+                :disabled="!row.canPlanView"
                 @click="row.canPlanView && viewPlan(row)"
               >
                 보기
-              </button>
+              </ArgonButton>
             </td>
 
             <td class="text-center">
-              <button
-                class="btn btn-sm mb-0"
-                :class="
-                  row.canCounselView ? 'btn-info' : 'btn-secondary disabled'
-                "
+              <ArgonButton
+                size="sm"
+                class="mb-0"
+                :color="row.canCounselView ? 'info' : 'secondary'"
+                :disabled="!row.canCounselView"
                 @click="row.canCounselView && viewCounseling(row)"
               >
                 보기
-              </button>
+              </ArgonButton>
             </td>
 
             <td class="text-center">
-              <button
-                class="btn btn-sm mb-0"
-                :class="
-                  row.canResultView ? 'btn-primary' : 'btn-secondary disabled'
-                "
+              <ArgonButton
+                size="sm"
+                class="mb-0"
+                :color="row.canResultView ? 'primary' : 'secondary'"
+                :disabled="!row.canResultView"
                 @click="row.canResultView && viewResult(row)"
               >
                 보기
-              </button>
+              </ArgonButton>
             </td>
           </tr>
         </template>

@@ -3,6 +3,8 @@ import { ref, onBeforeMount } from "vue";
 import { useRouter } from "vue-router";
 import SurveyTable from "./systemmanager_surveyComp/SurveyTable.vue";
 import axios from "axios";
+import ArgonButton from "@/components/ArgonButton.vue";
+import ArgonInput from "@/components/ArgonInput.vue";
 
 const router = useRouter(); // 라우터에 정보를 입력해서 그 라우터로 이동하겠다는 의미
 
@@ -72,27 +74,33 @@ onBeforeMount(() => {
           </div>
           <div class="card-body">
             <label class="form-label text-sm">조사지명</label>
-            <input
+            <ArgonInput
               v-model="searchName"
               type="text"
-              class="form-control form-control-sm mb-2"
+              size="sm"
+              class="mb-2"
               placeholder="검색할 조사지 이름을 입력해주세요"
               @keyup.enter="onSearch"
             />
-            <button
+            <ArgonButton
               type="button"
-              class="btn btn-sm btn-success w-100 mb-0"
+              size="sm"
+              color="success"
+              class="w-100 mb-0"
               @click="onSearch"
             >
               검색
-            </button>
-            <button
+            </ArgonButton>
+            <ArgonButton
               type="button"
-              class="btn btn-sm btn-outline-secondary w-100 mt-2"
+              size="sm"
+              variant="outline"
+              color="secondary"
+              class="w-100 mt-2"
               @click="onReset"
             >
               초기화
-            </button>
+            </ArgonButton>
           </div>
         </div>
       </div>
@@ -104,13 +112,9 @@ onBeforeMount(() => {
             class="card-header d-flex justify-content-between align-items-center pb-0"
           >
             <h6>조사지 목록</h6>
-            <button
-              class="btn btn-sm btn-primary"
-              type="button"
-              @click="goCreateSurvey"
-            >
+            <ArgonButton size="sm" color="primary" type="button" @click="goCreateSurvey">
               ✏️ 조사지 등록
-            </button>
+            </ArgonButton>
           </div>
           <div class="card-body px-0 pt-0 pb-2">
             <SurveyTable :surveys="surveys" :error="error" @edit="handleEdit" />

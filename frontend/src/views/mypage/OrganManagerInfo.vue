@@ -422,12 +422,15 @@ function goToManagerControl() {
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">기관 담당자 목록 (a0_30)</h5>
-            <button
+            <ArgonButton
               type="button"
-              class="btn-close"
-              aria-label="Close"
+              size="sm"
+              variant="outline"
+              color="secondary"
               @click="closeManagerModal"
-            />
+            >
+              닫기
+            </ArgonButton>
           </div>
           <div class="modal-body">
             <div v-if="managerListLoading" class="text-center py-4">

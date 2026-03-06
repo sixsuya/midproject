@@ -1,5 +1,5 @@
 import OrganManager from "@/views/OrganManager.vue";
-import admin from "@/views/AdminLayout.vue";
+import admin from "@/layouts/AdminLayout.vue";
 
 export default [
   // {

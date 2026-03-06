@@ -27,10 +27,13 @@ const onPageChange = (p) => {
       <div
         class="card-header pb-0 d-flex align-items-center justify-content-between"
       >
-        <h6 class="mb-0">{{ title }}</h6>
-        <span v-if="subtitle" class="text-xs text-muted">
-          {{ subtitle }}
-        </span>
+        <div>
+          <h6 class="mb-0">{{ title }}</h6>
+          <span v-if="subtitle" class="text-xs text-muted">
+            {{ subtitle }}
+          </span>
+        </div>
+        <slot name="header-actions" />
       </div>
 
       <div class="card-body pt-3">

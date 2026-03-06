@@ -1,5 +1,8 @@
 <!-- 지원신청서 탭 (조사지 응답) -->
 <script setup>
+import ArgonButton from "@/components/ArgonButton.vue";
+import ArgonInput from "@/components/ArgonInput.vue";
+
 function formatDate(val) {
   if (!val) return "";
   const d = new Date(val);
@@ -108,11 +111,12 @@ const emit = defineEmits(["start-edit", "save", "cancel"]);
                     아니오
                   </label>
                 </div>
-                <input
+                <ArgonInput
                   v-else
                   v-model="row.a_content"
                   type="text"
-                  class="form-control form-control-sm mt-1"
+                  size="sm"
+                  class="mt-1"
                   placeholder="답변 입력"
                 />
               </template>
@@ -126,31 +130,30 @@ const emit = defineEmits(["start-edit", "save", "cancel"]);
     class="mt-3 pt-2 border-top d-flex align-items-center justify-content-end flex-wrap gap-2"
   >
     <div v-if="!applicationEditMode && isApplicant" class="d-flex gap-2">
-      <button
-        type="button"
-        class="btn btn-sm btn-outline-primary"
-        @click="emit('start-edit')"
-      >
+      <ArgonButton type="button" size="sm" variant="outline" color="primary" @click="emit('start-edit')">
         수정하기
-      </button>
+      </ArgonButton>
     </div>
     <div v-else-if="applicationEditMode && isApplicant" class="d-flex gap-2">
-      <button
+      <ArgonButton
         type="button"
-        class="btn btn-sm btn-primary"
+        size="sm"
+        color="primary"
         :disabled="applicationSaveLoading"
         @click="emit('save')"
       >
         {{ applicationSaveLoading ? "저장 중..." : "저장" }}
-      </button>
-      <button
+      </ArgonButton>
+      <ArgonButton
         type="button"
-        class="btn btn-sm btn-outline-secondary"
+        size="sm"
+        variant="outline"
+        color="secondary"
         :disabled="applicationSaveLoading"
         @click="emit('cancel')"
       >
         취소
-      </button>
+      </ArgonButton>
     </div>
   </div>
 </template>
