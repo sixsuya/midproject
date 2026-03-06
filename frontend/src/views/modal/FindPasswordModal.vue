@@ -216,9 +216,8 @@ function onClose() {
                     type="button"
                     variant="outline"
                     color="success"
-                    size="sm"
-                    class="rounded-0 text-nowrap px-3 align-self-center"
-                    style="height: 46px"
+                    size="lg"
+                    class="rounded-0 text-nowrap align-self-end"
                     :disabled="sendButtonDisabled"
                     @click="sendVerificationCode"
                   >
@@ -247,9 +246,8 @@ function onClose() {
                     type="button"
                     variant="outline"
                     color="dark"
-                    size="sm"
-                    class="rounded-0 text-nowrap px-3 align-self-center"
-                    style="height: 46px"
+                    size="lg"
+                    class="rounded-0 text-nowrap align-self-end"
                     :disabled="isVerified || isVerifying"
                     @click="confirmVerification"
                   >
@@ -305,8 +303,8 @@ function onClose() {
                   fullWidth
                   variant="gradient"
                   color="success"
-                  class="rounded-0 py-2 mb-3"
                   size="lg"
+                  class="rounded-0 py-2 mb-3"
                   :disabled="isResetting"
                   @click="handleResetPassword"
                 >
@@ -320,8 +318,8 @@ function onClose() {
                   fullWidth
                   variant="outline"
                   color="secondary"
-                  class="rounded-0 py-2"
                   size="lg"
+                  class="rounded-0 py-2"
                   @click="goToLogin"
                 >
                   로그인 화면으로

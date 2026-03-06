@@ -1,17 +1,12 @@
 <script setup>
 /**
- * psw_ 지원대상 이력 페이지.
+ * 지원대상 이력 페이지.
  * - 기준 supCode 로 같은 지원대상자(mc_pn)의 모든 지원신청(support)을 조회
  * - 지원신청일자(sup_day)를 기준으로 블록을 나누고, 각 블록 안에서
  *   상담일지 / 지원계획 / 지원결과 목록을 스크롤로 연속해서 보여준다.
  *
  * API: GET /api/psw/support-history/:supCode
  */
-// 연결할 때 해당 페이지의 라우터 연결 방법)
-//  router.push({
-//   name: "PswSupportHistory",      // 라우트 이름 예시
-//   params: { sup_code: row.sup_code }, // 또는 supCode: row.sup_code
-// });
 import { ref, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import axios from "axios";
@@ -105,14 +100,9 @@ async function loadHistory() {
   }
 }
 
-// function changeTab(block, tab) {
-//   block.activeTab = tab;
-// }
-
 function resolveReviewTab(activeTab) {
   if (activeTab === "plan") return "plan";
   if (activeTab === "result") return "result";
-  // 상담일지는 별도 탭이 없으므로 기본 지원신청서 탭으로 진입
   return "application";
 }
 
@@ -202,7 +192,6 @@ onMounted(() => {
               </span>
             </div>
             <div class="d-flex align-items-center gap-2">
-              <!-- 유형 선택 (상담일지 / 지원계획 / 지원결과) -->
               <select
                 v-model="block.activeTab"
                 class="form-select form-select-sm w-auto"
@@ -223,9 +212,8 @@ onMounted(() => {
             </div>
           </div>
 
-          <!-- 블록 본문: 3번 영역 (선택된 유형에 해당하는 목록을 카드 형태로 표시) -->
+          <!-- 블록 본문 -->
           <div class="card-body psw-block-body">
-            <!-- 상담일지 -->
             <template v-if="block.activeTab === 'counsel'">
               <h6 class="mb-3">상담일지</h6>
               <div
@@ -260,7 +248,6 @@ onMounted(() => {
               </div>
             </template>
 
-            <!-- 지원계획 -->
             <template v-else-if="block.activeTab === 'plan'">
               <h6 class="mb-3">지원계획</h6>
               <div
@@ -298,7 +285,6 @@ onMounted(() => {
               </div>
             </template>
 
-            <!-- 지원결과 -->
             <template v-else>
               <h6 class="mb-3">지원결과</h6>
               <div
@@ -376,4 +362,3 @@ onMounted(() => {
   font-size: 0.875rem;
 }
 </style>
-

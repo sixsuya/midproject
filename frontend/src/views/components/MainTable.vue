@@ -22,16 +22,16 @@ const onPageChange = (p) => {
 </script>
 
 <template>
-  <div class="col-lg-9">
+  <div class="col-12 col-lg-9">
     <div class="card">
       <div
         class="card-header pb-0 d-flex align-items-center justify-content-between"
       >
         <div>
-          <h6 class="mb-0">{{ title }}</h6>
-          <span v-if="subtitle" class="text-xs text-muted">
+          <h5 class="mb-2">{{ title }}</h5>
+          <!-- <span v-if="subtitle" class="text-xs text-muted">
             {{ subtitle }}
-          </span>
+          </span> -->
         </div>
         <slot name="header-actions" />
       </div>

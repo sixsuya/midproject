@@ -25,8 +25,8 @@ const emit = defineEmits([
 </script>
 
 <template>
-  <div class="d-flex align-items-center justify-content-between mb-3">
-    <h6 class="text-sm text-uppercase text-muted mb-0">우선순위</h6>
+  <div class="counsel-section-header d-flex align-items-center justify-content-between mb-3">
+    <h6 class="counsel-section-title text-sm text-uppercase text-muted mb-0">우선순위</h6>
     <ArgonButton
       type="button"
       size="sm"

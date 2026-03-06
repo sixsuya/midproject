@@ -111,8 +111,8 @@ defineExpose({ reset, deleteTempAfterInsert: deleteSelectedTemp });
 
 <template>
   <div class="mb-3">
-    <div class="d-flex align-items-center justify-content-between mb-2">
-      <h6 class="text-sm text-uppercase text-muted mb-0">지원계획</h6>
+    <div class="counsel-section-header d-flex align-items-center justify-content-between mb-3">
+      <h6 class="counsel-section-title text-sm text-uppercase text-muted mb-0">지원계획</h6>
       <ArgonButton type="button" size="sm" variant="outline" color="primary" @click="emit('toggle')">
         계획추가
       </ArgonButton>

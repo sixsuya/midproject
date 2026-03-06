@@ -6,10 +6,10 @@ import { useAuthStore } from "@/store/auth";
 
 import Navbar from "@/examples/PageLayout/Navbar.vue";
 import ArgonInput from "@/components/ArgonInput.vue";
-import ArgonSwitch from "@/components/ArgonSwitch.vue";
 import ArgonButton from "@/components/ArgonButton.vue";
 import FindIdModal from "@/views/modal/FindIdModal.vue";
 import FindPasswordModal from "@/views/modal/FindPasswordModal.vue";
+import SigninTitle from "./SigninTitle.vue";
 
 // Vuex, Router
 const store = useStore();
@@ -20,7 +20,6 @@ const body = document.body;
 // 폼 입력 상태
 const userId = ref("");
 const password = ref("");
-const rememberMe = ref(false);
 
 // 아이디/비밀번호 찾기 모달
 const showFindIdModal = ref(false);
@@ -95,12 +94,6 @@ const handleLogin = async () => {
       sessionStorage.setItem("token", data.token || "");
       sessionStorage.setItem("user", JSON.stringify(data.user));
 
-      // localStorage 저장 (자동로그인용: rememberMe 체크 시)
-      if (rememberMe.value) {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
-      }
-
       // alert("로그인 성공!");
 
       // ✅ 권한별 분기
@@ -169,10 +162,15 @@ onBeforeUnmount(() => {
 
   <main class="mt-0 main-content">
     <section>
-      <div class="page-header min-vh-100">
-        <div class="container">
+      <div class="page-header min-vh-100 position-relative">
+        <!-- 타이틀: 화면 왼쪽 위 고정 -->
+        <div class="signin-title-wrap position-absolute top-0 start-0 m-3 m-md-4 z-index-2">
+          <SigninTitle />
+        </div>
+
+        <div class="container pt-5 pt-lg-0">
           <div class="row">
-            <!-- 로그인 카드 -->
+            <!-- 로그인 카드: 기존 위치 유지 (오른쪽) -->
             <div
               class="mx-auto col-xl-4 col-lg-5 col-md-7 d-flex flex-column ms-auto me-lg-5 position-relative z-index-2"
             >
@@ -188,81 +186,78 @@ onBeforeUnmount(() => {
                   <form @submit.prevent="handleLogin">
                     <!-- ID -->
                     <div class="mb-3">
-                      <argon-input
+                      <label for="userid" class="form-label text-sm">ID</label>
+                      <ArgonInput
                         v-model="userId"
                         id="userid"
                         type="text"
                         placeholder="ID"
                         name="userid"
-                        class="rounded-0 py-3"
+                        size="lg"
+                        class="rounded-0"
                       />
-                      <div class="text-end mt-1">
-                        <argon-button
-                          type="button"
-                          variant="gradient"
-                          color="success"
-                          class="rounded-0 py-1 px-3"
-                          size="sm"
-                          @click="goToFindId"
-                          >아이디 찾기</argon-button
-                        >
-                      </div>
                     </div>
 
                     <!-- Password -->
                     <div class="mb-3">
-                      <argon-input
+                      <label for="password" class="form-label text-sm">비밀번호</label>
+                      <ArgonInput
                         v-model="password"
                         id="password"
                         type="password"
                         placeholder="Password"
                         name="password"
-                        class="rounded-0 py-3"
+                        size="lg"
+                        class="rounded-0"
                       />
-                      <div class="text-end mt-1">
-                        <argon-button
-                          type="button"
-                          variant="gradient"
-                          color="success"
-                          class="rounded-0 py-1 px-3"
-                          size="sm"
-                          @click="goToResetPassword"
-                          >비밀번호 재설정</argon-button
-                        >
-                      </div>
                     </div>
 
-                    <!-- Remember me -->
-                    <argon-switch
-                      v-model="rememberMe"
-                      id="rememberMe"
-                      name="remember-me"
+                    <!-- 로그인 버튼 -->
+                    <ArgonButton
+                      type="submit"
+                      variant="gradient"
+                      color="success"
+                      fullWidth
+                      size="lg"
+                      class="rounded-0 py-2 mt-2 mb-4"
                     >
-                      Remember me
-                    </argon-switch>
-
-                    <!-- 버튼 -->
-                    <div class="d-flex gap-3 mt-4">
-                      <argon-button
-                        type="submit"
-                        variant="gradient"
-                        color="success"
-                        fullWidth
-                        class="rounded-0 py-2"
-                        >로그인</argon-button
-                      >
-
-                      <argon-button
-                        type="button"
-                        variant="outline"
-                        color="success"
-                        fullWidth
-                        class="rounded-0 py-2"
-                        @click="goToSignUp"
-                        >회원가입</argon-button
-                      >
-                    </div>
+                      로그인
+                    </ArgonButton>
                   </form>
+
+                  <!-- 하단: 회원가입, 아이디찾기, 비밀번호 재설정 -->
+                  <div class="d-flex flex-wrap justify-content-center gap-2 gap-md-3 pt-2 border-top">
+                    <ArgonButton
+                      type="button"
+                      variant="outline"
+                      color="success"
+                      size="sm"
+                      class="rounded-0"
+                      @click="goToSignUp"
+                    >
+                      회원가입
+                    </ArgonButton>
+                    <ArgonButton
+                      type="button"
+                      variant="outline"
+                      color="success"
+                      size="sm"
+                      class="rounded-0"
+                      @click="goToFindId"
+                    >
+                      아이디 찾기
+                    </ArgonButton>
+                    <ArgonButton
+                      type="button"
+                      variant="outline"
+                      color="success"
+                      size="sm"
+                      class="rounded-0"
+                      @click="goToResetPassword"
+                    >
+                      비밀번호 재설정
+                    </ArgonButton>
+                  </div>
                 </div>
               </div>
             </div>
@@ -313,50 +308,21 @@ onBeforeUnmount(() => {
             {{ modalMessage }}
           </div>
           <div class="modal-footer border-0 pt-0 justify-content-center">
-            <argon-button
+            <ArgonButton
+              type="button"
               color="success"
               variant="gradient"
+              size="lg"
               class="rounded-0 px-5"
               @click="showModal = false"
-              >확인</argon-button
             >
+              확인
+            </ArgonButton>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 화면 맨 아래 고정되는 외부 링크 바 -->
-    <!-- 화면 맨 아래 고정되는 외부 링크 바 -->
-<div class="position-absolute bottom-0 start-0 w-100 z-index-3 pb-4">
-  <div class="container">
-    <div class="row justify-content-center">
-      <div class="col-lg-6 text-center">
-        <div
-          class="d-flex justify-content-center gap-4 p-2 rounded-3"
-          style="background: rgba(0,0,0,0.35); backdrop-filter: blur(4px);"
-        >
-          <!-- Google -->
-          <a
-            href="https://www.google.com"
-            target="_blank"
-            class="external-icon"
-          >
-            <i class="fa-brands fa-google"></i>
-          </a>
-
-          <!-- Naver -->
-          <a
-            href="https://www.naver.com"
-            target="_blank"
-            class="external-icon"
-          >
-            <i class="fa-solid fa-n"></i>
-          </a>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
   </main>
 </template>
 

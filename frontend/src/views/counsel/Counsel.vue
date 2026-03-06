@@ -909,8 +909,9 @@ watch(
   },
 );
 
-// 지원신청서: survey_a 조사지 질문+답 (sup_code로 API 조회)
+// 지원신청서: survey_a 조사지 질문+답 (sup_code로 API 조회) — API는 { surveyName, items } 반환
 const surveyAnswers = ref([]);
+const surveyName = ref("");
 const surveyAnswersLoading = ref(false);
 const surveyAnswersError = ref(null);
 
@@ -925,18 +926,23 @@ async function loadSurveyAnswers() {
     );
     if (!res.ok) throw new Error("조사지 답변 조회 실패");
     const data = await res.json();
-    surveyAnswers.value = (Array.isArray(data) ? data : []).map((r) => ({
+    const rawItems = Array.isArray(data) ? data : (data?.items ?? []);
+    surveyName.value = data?.surveyName ?? "";
+    surveyAnswers.value = rawItems.map((r) => ({
       a_code: r.a_code ?? "",
+      q_code: r.q_code ?? "",
       major_name: r.major_name ?? "",
       sub_name: r.sub_name ?? "",
       q_no: r.q_no,
       q_type: r.q_type ?? "f0_00",
       q_content: r.q_content ?? "",
       a_content: r.a_content ?? "",
+      views: Array.isArray(r.views) ? r.views : [],
     }));
   } catch (e) {
     surveyAnswersError.value = e.message;
     surveyAnswers.value = [];
+    surveyName.value = "";
   } finally {
     surveyAnswersLoading.value = false;
   }
@@ -1281,11 +1287,11 @@ function onReceiptReject() {
             @toggle-panel="toggleRightPanel"
           />
 
-          <!-- 이동 링크: 지원신청서 | 우선순위 | 지원계획 | 지원결과 -->
-          <div class="mb-2">
+          <!-- 탭: 지원신청서 | 신청접수 | 우선순위 | 지원계획 | 지원결과 (스타일·정렬 통일) -->
+          <div class="counsel-tab-bar d-flex flex-wrap align-items-center gap-2 mb-3">
             <button
               type="button"
-              class="counsel-tab-btn rounded px-2 py-1 text-decoration-none border-0"
+              class="counsel-tab-btn rounded px-3 py-1 text-decoration-none border-0"
               :class="
                 leftTab === 'application'
                   ? 'counsel-tab-active fw-bold text-dark'
@@ -1295,24 +1301,28 @@ function onReceiptReject() {
             >
               지원신청서
             </button>
-            <!-- 기관담당자용 신청접수: 상담내역이 있고 req_yn=e0_00 일 때 -->
             <button
               v-if="showReceiptTab"
               type="button"
-              class="btn btn-link btn-sm p-0 me-3 text-decoration-none"
+              class="counsel-tab-btn rounded px-3 py-1 text-decoration-none border-0"
               :class="
-                leftTab === 'receipt' ? 'fw-bold text-dark' : 'text-muted'
+                leftTab === 'receipt'
+                  ? 'counsel-tab-active fw-bold text-dark'
+                  : 'text-muted bg-transparent'
               "
               @click="leftTab = 'receipt'"
             >
               신청접수
             </button>
-            <!-- 우선순위: 신청접수 후(접수 상태 등) 사용 -->
             <button
               v-if="showRankTab"
               type="button"
-              class="btn btn-link btn-sm p-0 me-3 text-decoration-none"
-              :class="leftTab === 'rank' ? 'fw-bold text-dark' : 'text-muted'"
+              class="counsel-tab-btn rounded px-3 py-1 text-decoration-none border-0"
+              :class="
+                leftTab === 'rank'
+                  ? 'counsel-tab-active fw-bold text-dark'
+                  : 'text-muted bg-transparent'
+              "
               @click="leftTab = 'rank'"
             >
               우선순위
@@ -1320,8 +1330,12 @@ function onReceiptReject() {
             <button
               v-if="showPlanTab"
               type="button"
-              class="btn btn-link btn-sm p-0 me-3 text-decoration-none"
-              :class="leftTab === 'plan' ? 'fw-bold text-dark' : 'text-muted'"
+              class="counsel-tab-btn rounded px-3 py-1 text-decoration-none border-0"
+              :class="
+                leftTab === 'plan'
+                  ? 'counsel-tab-active fw-bold text-dark'
+                  : 'text-muted bg-transparent'
+              "
               @click="
                 leftTab = 'plan';
                 loadPlanTab();
@@ -1332,7 +1346,7 @@ function onReceiptReject() {
             <button
               v-if="showResultTab"
               type="button"
-              class="counsel-tab-btn rounded px-2 py-1 text-decoration-none border-0"
+              class="counsel-tab-btn rounded px-3 py-1 text-decoration-none border-0"
               :class="
                 leftTab === 'result'
                   ? 'counsel-tab-active fw-bold text-dark'
@@ -1354,6 +1368,7 @@ function onReceiptReject() {
               <CounselApplicationTab
                 v-if="leftTab === 'application'"
                 :support="support"
+                :survey-name="surveyName"
                 :survey-answers-grouped="surveyAnswersGrouped"
                 :survey-answers-loading="surveyAnswersLoading"
                 :survey-answers-error="surveyAnswersError"
@@ -1915,19 +1930,12 @@ function onReceiptReject() {
 .counsel-survey-list .counsel-survey-item:last-child {
   border-bottom: none !important;
 }
-/* 탭 제목: 현재 작업 중인 화면 음영 */
+/* 탭 버튼: 전역 .counsel-tab-btn / .counsel-tab-active 사용, 비활성만 보완 */
 .counsel-tab-btn {
-  font-size: 0.875rem;
   background: transparent;
   cursor: pointer;
 }
-.counsel-tab-active {
-  background: rgba(0, 0, 0, 0.08) !important;
-}
-/* 비활성화된 탭/버튼 공통 스타일 */
-.counsel-tab-btn:disabled,
-.btn:disabled,
-.btn[disabled] {
+.counsel-tab-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   pointer-events: none;
