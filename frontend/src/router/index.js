@@ -4,7 +4,7 @@ import Signup from "../views/sign/Signup.vue";
 import Signin from "../views/sign/Signin.vue";
 import FindId from "../views/sign/FindId.vue";
 import FindPassword from "../views/sign/FindPassword.vue";
-import ProxyTest from "../views/ProxyTest.vue";
+// import ProxyTest from "../views/ProxyTest.vue";
 import { useAuthStore } from "@/store/auth";
 import kjh from "./kjh";
 import psw from "./psw";
@@ -102,11 +102,11 @@ const routesList = [
     name: "FindPassword",
     component: FindPassword,
   },
-  {
-    path: "/proxy-test",
-    name: "ProxyTest",
-    component: ProxyTest,
-  },
+  // {
+  //   path: "/proxy-test",
+  //   name: "ProxyTest",
+  //   component: ProxyTest,
+  // },
 ];
 
 const router = createRouter({
