@@ -1231,8 +1231,17 @@ const showResultTab = computed(
   () =>
     reqYn.value === "e0_10" &&
     rankApproved.value &&
-    (selectedPlanCode.value || resultData.value.length > 0),
+    // 결정(승인/보완/반려) 처리 직후 재조회 과정에서 resultData가 잠깐 0이 되더라도
+    // 결과 탭이 사라지며 "빈 화면"처럼 보이지 않게 현재 탭이면 유지한다.
+    (leftTab.value === "result" ||
+      selectedPlanCode.value ||
+      resultData.value.length > 0),
 );
+
+async function refreshResultTabAfterDecision() {
+  if (leftTab.value !== "result") return;
+  await loadResultTab();
+}
 
 async function updateReqYn(decision) {
   const code = supCode.value;
@@ -1683,15 +1692,26 @@ function onReceiptReject() {
                     openResultSuppleHistory(result.result_code)
                   "
                   @approve="
-                    (rc) =>
-                      supportStore
-                        .decideResult(rc, 'e0_10', null)
-                        .then(() =>
-                          supportStore.supportResultDetail(
-                            supCode.value,
-                            selectedPlanCode.value,
-                          ),
-                        )
+                    async (rc) => {
+                      const res = await supportStore.decideResult(
+                        rc,
+                        'e0_10',
+                        null,
+                      );
+                      if (res?.retCode === 'Success') {
+                        const p = getAlertPreset('approvalComplete', 'result');
+                        showAlert(p.type, p.title, res.retMsg ?? p.message);
+                        await refreshResultTabAfterDecision();
+                      } else if (res != null) {
+                        showAlert(
+                          'error',
+                          '알림',
+                          res.retMsg ?? '처리에 실패했습니다.',
+                        );
+                      } else {
+                        showAlert('error', '알림', '처리에 실패했습니다.');
+                      }
+                    }
                   "
                   @supple="
                     (rc) =>
@@ -1712,10 +1732,7 @@ function onReceiptReject() {
                             reason ?? null,
                           );
                           if (res?.retCode === 'Success') {
-                            await supportStore.supportResultDetail(
-                              code,
-                              selectedPlanCode.value ?? undefined,
-                            );
+                            await refreshResultTabAfterDecision();
                             const p = getAlertPreset(
                               context.decision === 'e0_80'
                                 ? 'suppleComplete'
@@ -1752,10 +1769,7 @@ function onReceiptReject() {
                             reason ?? null,
                           );
                           if (res?.retCode === 'Success') {
-                            await supportStore.supportResultDetail(
-                              code,
-                              selectedPlanCode.value ?? undefined,
-                            );
+                            await refreshResultTabAfterDecision();
                             const p = getAlertPreset(
                               context.decision === 'e0_80'
                                 ? 'suppleComplete'
