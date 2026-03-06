@@ -3,6 +3,8 @@
 import { ref, reactive, computed } from "vue";
 import { useTempStorage } from "@/composables/useTempStorage";
 import TempStorageModal from "@/components/TempStorageModal.vue";
+import ArgonButton from "@/components/ArgonButton.vue";
+import ArgonInput from "@/components/ArgonInput.vue";
 
 const props = defineProps({
   supCode: { type: String, default: "" },
@@ -111,40 +113,23 @@ defineExpose({ reset, deleteTempAfterInsert: deleteSelectedTemp });
   <div class="mb-3">
     <div class="d-flex align-items-center justify-content-between mb-2">
       <h6 class="text-sm text-uppercase text-muted mb-0">지원계획</h6>
-      <button
-        type="button"
-        class="btn btn-sm btn-outline-primary"
-        @click="emit('toggle')"
-      >
+      <ArgonButton type="button" size="sm" variant="outline" color="primary" @click="emit('toggle')">
         계획추가
-      </button>
+      </ArgonButton>
     </div>
     <div v-if="show" class="card shadow-sm border-radius-lg mb-4">
       <div class="card-body">
         <div class="d-flex justify-content-end gap-2 mb-3">
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-secondary"
-            @click="openLoadModal"
-          >
+          <ArgonButton type="button" size="sm" variant="outline" color="secondary" @click="openLoadModal">
             임시저장 불러오기
-          </button>
-          <button
-            type="button"
-            class="btn btn-sm btn-secondary"
-            @click="doTempSave"
-          >
+          </ArgonButton>
+          <ArgonButton type="button" size="sm" color="secondary" @click="doTempSave">
             임시저장
-          </button>
+          </ArgonButton>
         </div>
         <div class="mb-3">
           <label class="form-label text-sm text-body mb-1">제목</label>
-          <input
-            v-model="form.title"
-            type="text"
-            class="form-control form-control-sm"
-            placeholder="지원 계획 제목"
-          />
+          <ArgonInput v-model="form.title" type="text" size="sm" placeholder="지원 계획 제목" />
         </div>
         <div class="mb-3">
           <label class="form-label text-sm text-body mb-1">내용</label>
@@ -158,19 +143,9 @@ defineExpose({ reset, deleteTempAfterInsert: deleteSelectedTemp });
         <div class="mb-3">
           <label class="form-label text-sm text-body mb-1">지원기간</label>
           <div class="d-flex align-items-center flex-wrap gap-2">
-            <input
-              v-model="form.startDate"
-              type="date"
-              class="form-control form-control-sm"
-              style="max-width: 11rem"
-            />
+            <ArgonInput v-model="form.startDate" type="date" size="sm" style="max-width: 11rem" />
             <span class="text-body">~</span>
-            <input
-              v-model="form.endDate"
-              type="date"
-              class="form-control form-control-sm"
-              style="max-width: 11rem"
-            />
+            <ArgonInput v-model="form.endDate" type="date" size="sm" style="max-width: 11rem" />
           </div>
         </div>
         <div class="mb-3">
@@ -182,32 +157,25 @@ defineExpose({ reset, deleteTempAfterInsert: deleteSelectedTemp });
             multiple
             @change="onFileChange"
           />
-          <button
+          <ArgonButton
             type="button"
-            class="form-control form-control-sm text-start bg-white"
+            size="sm"
+            variant="outline"
+            color="secondary"
+            class="text-start w-100 bg-white"
             @click="openFileDialog"
           >
             <span v-if="fileNames">{{ fileNames }}</span>
-            <span v-else class="text-muted">
-              파일을 선택하세요. 10MB 초과 불가.
-            </span>
-          </button>
+            <span v-else class="text-muted">파일을 선택하세요. 10MB 초과 불가.</span>
+          </ArgonButton>
         </div>
         <div class="d-flex justify-content-end gap-2">
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-primary"
-            @click="onApprovalRequest"
-          >
+          <ArgonButton type="button" size="sm" variant="outline" color="primary" @click="onApprovalRequest">
             승인요청
-          </button>
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-secondary"
-            @click="onCancel"
-          >
+          </ArgonButton>
+          <ArgonButton type="button" size="sm" variant="outline" color="secondary" @click="onCancel">
             취소
-          </button>
+          </ArgonButton>
         </div>
       </div>
     </div>

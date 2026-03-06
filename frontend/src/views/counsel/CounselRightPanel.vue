@@ -1,6 +1,8 @@
 <!-- 상담내역 우측 패널 -->
 <script setup>
 import { reactive, watch } from "vue";
+import ArgonButton from "@/components/ArgonButton.vue";
+import ArgonInput from "@/components/ArgonInput.vue";
 
 function formatCounselDate(val) {
   if (!val) return "";
@@ -75,9 +77,12 @@ watch(
     >
       <div class="d-flex align-items-center gap-2">
         <h6 class="mb-0 fw-bold">상담내역</h6>
-        <button
+        <ArgonButton
           type="button"
-          class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
+          size="sm"
+          variant="outline"
+          color="primary"
+          class="d-inline-flex align-items-center gap-1"
           @click="emit('open-add-form')"
         >
           <svg
@@ -93,7 +98,7 @@ watch(
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
           <span>상담추가</span>
-        </button>
+        </ArgonButton>
       </div>
     </div>
     <div class="card-body">
@@ -104,38 +109,43 @@ watch(
       >
         <div class="d-flex align-items-center justify-content-between mb-3">
           <h6 class="text-sm text-uppercase text-muted mb-0">상담 상세</h6>
-          <button
+          <ArgonButton
             type="button"
-            class="btn btn-sm btn-outline-secondary"
+            size="sm"
+            variant="outline"
+            color="secondary"
             @click="emit('close-detail')"
           >
             닫기
-          </button>
+          </ArgonButton>
         </div>
         <div class="mb-2">
           <label class="form-label text-xs mb-0">제목</label>
-          <input
+          <ArgonInput
             type="text"
-            class="form-control form-control-sm bg-white"
-            :value="selectedCounselDetail.csl_title"
+            size="sm"
+            class="bg-white"
+            :model-value="selectedCounselDetail.csl_title"
             readonly
           />
         </div>
         <div class="mb-2">
           <label class="form-label text-xs mb-0">상담일</label>
-          <input
+          <ArgonInput
             type="text"
-            class="form-control form-control-sm bg-white"
-            :value="formatCounselDate(selectedCounselDetail.csl_date)"
+            size="sm"
+            class="bg-white"
+            :model-value="formatCounselDate(selectedCounselDetail.csl_date)"
             readonly
           />
         </div>
         <div class="mb-2">
           <label class="form-label text-xs mb-0">상담진행자</label>
-          <input
+          <ArgonInput
             type="text"
-            class="form-control form-control-sm bg-white"
-            :value="selectedCounselDetail.csl_writer_nm || selectedCounselDetail.csl_name || selectedCounselDetail.csl_writer"
+            size="sm"
+            class="bg-white"
+            :model-value="selectedCounselDetail.csl_writer_nm || selectedCounselDetail.csl_name || selectedCounselDetail.csl_writer"
             readonly
           />
         </div>
@@ -155,39 +165,43 @@ watch(
         <div class="d-flex align-items-center justify-content-between mb-3">
           <h6 class="text-sm text-uppercase text-muted mb-0">상담등록</h6>
           <div class="d-flex gap-2">
-            <button
+            <ArgonButton
               type="button"
-              class="btn btn-sm btn-outline-secondary"
+              size="sm"
+              variant="outline"
+              color="secondary"
               :disabled="tempSaveLoading"
               @click="emit('temp-save')"
             >
               {{ tempSaveLoading ? "저장 중..." : "임시저장" }}
-            </button>
-            <button
+            </ArgonButton>
+            <ArgonButton
               type="button"
-              class="btn btn-sm btn-outline-primary"
+              size="sm"
+              variant="outline"
+              color="primary"
               :disabled="tempStorageListLoading"
               @click="emit('open-temp-load')"
             >
               {{ tempStorageListLoading ? "로딩..." : "임시저장 불러오기" }}
-            </button>
+            </ArgonButton>
           </div>
         </div>
         <div class="mb-2">
           <label class="form-label text-xs mb-0">제목</label>
-          <input
+          <ArgonInput
             v-model="form.csl_title"
             type="text"
-            class="form-control form-control-sm"
+            size="sm"
             placeholder="제목을 입력해주세요"
           />
         </div>
         <div class="mb-2">
           <label class="form-label text-xs mb-0">상담일</label>
-          <input
+          <ArgonInput
             v-model="form.counselDate"
             type="date"
-            class="form-control form-control-sm"
+            size="sm"
           />
         </div>
         <div class="mb-2">
@@ -229,22 +243,25 @@ watch(
           >
         </div>
         <div class="d-flex justify-content-end gap-2">
-          <button
+          <ArgonButton
             type="button"
-            class="btn btn-sm btn-warning"
+            size="sm"
+            color="warning"
             :disabled="counselFormSaving"
             @click="emit('save-counsel', { ...form })"
           >
             {{ counselFormSaving ? "저장 중..." : "저장" }}
-          </button>
-          <button
+          </ArgonButton>
+          <ArgonButton
             type="button"
-            class="btn btn-sm btn-outline-secondary"
+            size="sm"
+            variant="outline"
+            color="secondary"
             :disabled="counselFormSaving"
             @click="emit('cancel-form')"
           >
             취소
-          </button>
+          </ArgonButton>
         </div>
       </div>
 
@@ -279,13 +296,16 @@ watch(
               {{ contentPreview(item.csl_content) }}
             </div>
           </div>
-          <button
+          <ArgonButton
             type="button"
-            class="btn btn-sm btn-outline-secondary flex-shrink-0"
+            size="sm"
+            variant="outline"
+            color="secondary"
+            class="flex-shrink-0"
             @click="emit('open-detail', item)"
           >
             상세보기
-          </button>
+          </ArgonButton>
         </div>
         <div
           v-if="

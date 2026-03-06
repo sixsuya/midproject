@@ -1,5 +1,8 @@
 <!-- 지원대상자 정보 카드 -->
 <script setup>
+import ArgonButton from "@/components/ArgonButton.vue";
+import ArgonInput from "@/components/ArgonInput.vue";
+
 function formatDate(val) {
   if (!val) return "";
   const d = new Date(val);
@@ -28,14 +31,15 @@ const emit = defineEmits(["toggle-panel"]);
       class="card-header py-2 d-flex align-items-center justify-content-between"
     >
       <h6 class="mb-0">지원대상자 정보</h6>
-      <button
+      <ArgonButton
         type="button"
-        class="btn btn-sm"
-        :class="showRightPanel ? 'btn-outline-secondary' : 'btn-success'"
+        size="sm"
+        :variant="showRightPanel ? 'outline' : 'fill'"
+        :color="showRightPanel ? 'secondary' : 'success'"
         @click="emit('toggle-panel')"
       >
         {{ showRightPanel ? "상담내역 닫기" : "상담내역 보기" }}
-      </button>
+      </ArgonButton>
     </div>
     <div class="card-body pt-2">
       <p v-if="dsblLoading" class="text-muted text-sm mb-0">로딩 중...</p>
@@ -45,10 +49,11 @@ const emit = defineEmits(["toggle-panel"]);
       <template v-else>
         <div class="mb-3">
           <label class="form-label text-sm mb-1">성명</label>
-          <input
-            :value="dsblPrs?.mc_nm ?? ''"
+          <ArgonInput
             type="text"
-            class="form-control form-control-sm bg-light"
+            size="sm"
+            class="bg-light"
+            :model-value="dsblPrs?.mc_nm ?? ''"
             readonly
           />
         </div>

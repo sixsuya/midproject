@@ -6,6 +6,7 @@
  */
 import { ref, watch, computed } from "vue";
 import { useAuthStore } from "@/store/auth";
+import ArgonButton from "@/components/ArgonButton.vue";
 
 // ========== auth (버튼 노출 권한) ==========
 const authStore = useAuthStore();
@@ -200,22 +201,27 @@ function onCancel() {
         :class="has_supple ? 'justify-content-between' : 'justify-content-end'"
       >
         <!-- 보완이력 버튼 (좌측): 한 번이라도 보완 판정이 있었던 경우 노출 -->
-        <button
+        <ArgonButton
           v-if="has_supple"
           type="button"
-          class="btn btn-sm btn-outline-purple"
+          size="sm"
+          variant="outline"
+          color="secondary"
+          class="btn-outline-purple"
           @click="emit('open-supple-history')"
         >
           보완이력
-        </button>
+        </ArgonButton>
 
         <!-- 우측 버튼 그룹 -->
         <div class="d-flex flex-wrap gap-2">
           <!-- 신청 단계('' 등) 및 보완판정(e0_80): 승인요청 / 취소 활성 -->
           <template v-if="s_rank_res !== 'e0_00'">
-            <button
+            <ArgonButton
               type="button"
-              class="btn btn-sm btn-outline-primary"
+              size="sm"
+              variant="outline"
+              color="primary"
               @click="
                 emit('approval-request', {
                   s_rank_code: selectedCode,
@@ -225,41 +231,46 @@ function onCancel() {
               "
             >
               승인요청
-            </button>
-            <button
+            </ArgonButton>
+            <ArgonButton
               type="button"
-              class="btn btn-sm btn-outline-secondary"
+              size="sm"
+              variant="outline"
+              color="secondary"
               @click="onCancel"
             >
               취소
-            </button>
+            </ArgonButton>
           </template>
 
           <!-- 승인요청 상태(e0_00): 승인 / 보완 / 반려만 활성 (기관관리자 전용) -->
-          <button
+          <ArgonButton
             v-if="canManageRank && s_rank_res === 'e0_00'"
             type="button"
-            class="btn btn-sm btn-success"
+            size="sm"
+            color="success"
             @click="emit('approve')"
           >
             승인
-          </button>
-          <button
+          </ArgonButton>
+          <ArgonButton
             v-if="canManageRank && s_rank_res === 'e0_00'"
             type="button"
-            class="btn btn-sm btn-warning"
+            size="sm"
+            color="warning"
             @click="emit('supple')"
           >
             보완
-          </button>
-          <button
+          </ArgonButton>
+          <ArgonButton
             v-if="canManageRank && s_rank_res === 'e0_00'"
             type="button"
-            class="btn btn-sm btn-danger"
+            size="sm"
+            color="danger"
             @click="emit('reject')"
           >
             반려
-          </button>
+          </ArgonButton>
         </div>
       </div>
 
@@ -268,13 +279,16 @@ function onCancel() {
         v-else-if="has_supple"
         class="d-flex justify-content-start mt-2"
       >
-        <button
+        <ArgonButton
           type="button"
-          class="btn btn-sm btn-outline-purple"
+          size="sm"
+          variant="outline"
+          color="secondary"
+          class="btn-outline-purple"
           @click="emit('open-supple-history')"
         >
           보완이력
-        </button>
+        </ArgonButton>
       </div>
     </div>
   </div>

@@ -1,17 +1,20 @@
 <script setup>
-import { onBeforeMount, onBeforeUnmount, ref } from "vue";
+import { onBeforeMount, onBeforeUnmount, onMounted, ref } from "vue";
 import { useStore } from "vuex";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import { useAuthStore } from "@/store/auth";
 
 import Navbar from "@/examples/PageLayout/Navbar.vue";
 import ArgonInput from "@/components/ArgonInput.vue";
 import ArgonSwitch from "@/components/ArgonSwitch.vue";
 import ArgonButton from "@/components/ArgonButton.vue";
+import FindIdModal from "@/views/modal/FindIdModal.vue";
+import FindPasswordModal from "@/views/modal/FindPasswordModal.vue";
 
 // Vuex, Router
 const store = useStore();
 const router = useRouter();
+const route = useRoute();
 const body = document.body;
 
 // 폼 입력 상태
@@ -19,13 +22,39 @@ const userId = ref("");
 const password = ref("");
 const rememberMe = ref(false);
 
+// 아이디/비밀번호 찾기 모달
+const showFindIdModal = ref(false);
+const showFindPasswordModal = ref(false);
+
 // 라우터 이동 함수
 const goToSignUp = () => router.push("/signup");
-const goToFindId = () => router.push("/find-id");
-const goToResetPassword = () => router.push("/find-password");
+const goToFindId = () => {
+  showFindIdModal.value = true;
+};
+const goToResetPassword = () => {
+  showFindPasswordModal.value = true;
+};
+
+function onFindIdGoLogin() {
+  showFindIdModal.value = false;
+}
+function onFindIdGoFindPassword() {
+  showFindIdModal.value = false;
+  showFindPasswordModal.value = true;
+}
+function onFindPasswordGoLogin() {
+  showFindPasswordModal.value = false;
+}
 
 // 로그인 저장소 피니아
 const authStore = useAuthStore();
+
+// URL 쿼리로 모달 열기 (/find-id, /find-password 리다이렉트 대응)
+onMounted(() => {
+  const open = route.query.open;
+  if (open === "find-id") showFindIdModal.value = true;
+  else if (open === "find-password") showFindPasswordModal.value = true;
+});
 
 // 모달 상태
 const showModal = ref(false);
@@ -256,6 +285,19 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </section>
+    <!-- 아이디 찾기 / 비밀번호 재설정 모달 -->
+    <FindIdModal
+      :show="showFindIdModal"
+      @close="showFindIdModal = false"
+      @go-login="onFindIdGoLogin"
+      @go-find-password="onFindIdGoFindPassword"
+    />
+    <FindPasswordModal
+      :show="showFindPasswordModal"
+      @close="showFindPasswordModal = false"
+      @go-login="onFindPasswordGoLogin"
+    />
+
     <!-- 모달: 알림 -->
     <div
       v-if="showModal"

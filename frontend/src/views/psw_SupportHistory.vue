@@ -16,6 +16,7 @@ import { ref, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import axios from "axios";
 import HeaderNavbar from "@/components/HeaderNavbar.vue";
+import ArgonButton from "@/components/ArgonButton.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -210,13 +211,15 @@ onMounted(() => {
                 <option value="plan">지원계획</option>
                 <option value="result">지원결과</option>
               </select>
-              <button
+              <ArgonButton
                 type="button"
-                class="btn btn-sm btn-outline-primary"
+                size="sm"
+                variant="outline"
+                color="primary"
                 @click="goView(block)"
               >
                 해당지원신청서로 이동하기
-              </button>
+              </ArgonButton>
             </div>
           </div>
 
