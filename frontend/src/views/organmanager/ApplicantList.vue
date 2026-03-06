@@ -20,13 +20,7 @@ const filters = ref({
   targetName: "",
   applicantName: "",
   managerName: "",
-  stage: {
-    review: false,
-    wait: false,
-    apply: false,
-    approve: false,
-    reject: false,
-  },
+  stage: "전체",
   progress: {
     review: false,
     approve: false,
@@ -42,13 +36,7 @@ const appliedFilters = ref({
   targetName: "",
   applicantName: "",
   managerName: "",
-  stage: {
-    review: false,
-    wait: false,
-    apply: false,
-    approve: false,
-    reject: false,
-  },
+  stage: "전체",
   progress: {
     review: false,
     approve: false,
@@ -74,7 +62,7 @@ function formatApplyDate(val) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** 대기단계 코드 → 한글 (e0_00 검토, e0_10 승인 등) */
+/** 지원진행상태: 백엔드 코드 → 한글 */
 function stageLabel(codeOrName) {
   const map = {
     e0_00: "검토",
@@ -85,9 +73,19 @@ function stageLabel(codeOrName) {
     e1_10: "신청",
     e1_20: "승인",
     e1_99: "반려",
+    d0_20: "계획",
+    d0_30: "중점",
+    d0_40: "긴급",
   };
   const s = (codeOrName || "").trim();
   return map[s] || s || "";
+}
+
+/** 담당자/관리자용 테이블 표시: 승인 → 검토(우선순위 미승인 등), 나머지 그대로 */
+function stageDisplayForManager(stage) {
+  const s = String(stage || "").trim();
+  if (s === "승인") return "검토";
+  return s || "—";
 }
 
 function mapApiRow(r, index) {
@@ -209,11 +207,7 @@ const onReset = () => {
   filters.value.targetName = "";
   filters.value.applicantName = "";
   filters.value.managerName = "";
-  filters.value.stage.review = false;
-  filters.value.stage.wait = false;
-  filters.value.stage.apply = false;
-  filters.value.stage.approve = false;
-  filters.value.stage.reject = false;
+  filters.value.stage = "전체";
   filters.value.progress.review = false;
   filters.value.progress.approve = false;
   filters.value.progress.reject = false;
@@ -238,20 +232,11 @@ const filteredRows = computed(() => {
       return false;
     if (f.managerName && !String(r.managerName || "").includes(f.managerName))
       return false;
-    const stageAny =
-      f.stage.review ||
-      f.stage.wait ||
-      f.stage.apply ||
-      f.stage.approve ||
-      f.stage.reject;
-    if (stageAny) {
-      const allowed = [];
-      if (f.stage.review) allowed.push("검토");
-      if (f.stage.wait) allowed.push("대기");
-      if (f.stage.apply) allowed.push("신청");
-      if (f.stage.approve) allowed.push("승인");
-      if (f.stage.reject) allowed.push("반려");
-      if (allowed.length && !allowed.includes(r.stage)) return false;
+    if (f.stage !== "전체") {
+      const stage = String(r.stage || "").trim();
+      if (f.stage === "검토" && !["검토", "승인"].includes(stage)) return false;
+      if (f.stage === "보완" && stage !== "보완") return false;
+      if (["긴급", "중점", "계획", "반려"].includes(f.stage) && stage !== f.stage) return false;
     }
     const pc = f.progress;
     const any = pc.review || pc.approve || pc.reject || pc.done;
@@ -282,18 +267,8 @@ const viewApply = (row) => {
   if (row.sup_code) router.push(`/review/${encodeURIComponent(row.sup_code)}`);
   else alert("지원 정보를 찾을 수 없습니다.");
 };
-const viewPlan = (row) => {
-  if (row.sup_code)
-    router.push(`/support-plan/${encodeURIComponent(row.sup_code)}`);
-  else alert("지원 정보를 찾을 수 없습니다.");
-};
 const viewCounseling = (row) => {
   if (row.sup_code) router.push(`/review/${encodeURIComponent(row.sup_code)}`);
-  else alert("지원 정보를 찾을 수 없습니다.");
-};
-const viewResult = (row) => {
-  if (row.sup_code)
-    router.push(`/support-result/${encodeURIComponent(row.sup_code)}`);
   else alert("지원 정보를 찾을 수 없습니다.");
 };
 </script>
@@ -342,95 +317,80 @@ const viewResult = (row) => {
 
         <hr class="horizontal dark my-3" />
 
-        <!-- 대기단계 -->
-        <label class="form-label text-sm">대기단계</label>
-        <div class="d-flex flex-wrap gap-2">
-          <ArgonButton
-            class="mb-0"
-            size="sm"
-            :color="filters.stage === '전체' ? 'warning' : 'secondary'"
-            :variant="filters.stage === '전체' ? 'fill' : 'outline'"
-            @click="filters.stage = '전체'"
-          >
-            전체
-          </ArgonButton>
-          <ArgonButton
-            class="mb-0"
-            size="sm"
-            :color="filters.stage === '검토 중' ? 'warning' : 'secondary'"
-            :variant="filters.stage === '검토 중' ? 'fill' : 'outline'"
-            @click="filters.stage = '검토 중'"
-          >
-            검토 중
-          </ArgonButton>
-          <ArgonButton
-            class="mb-0"
-            size="sm"
-            :color="filters.stage === '대기' ? 'warning' : 'secondary'"
-            :variant="filters.stage === '대기' ? 'fill' : 'outline'"
-            @click="filters.stage = '대기'"
-          >
-            대기
-          </ArgonButton>
-          <ArgonButton
-            class="mb-0"
-            size="sm"
-            :color="filters.stage === '긴급' ? 'warning' : 'secondary'"
-            :variant="filters.stage === '긴급' ? 'fill' : 'outline'"
-            @click="filters.stage = '긴급'"
-          >
-            긴급
-          </ArgonButton>
-          <ArgonButton
-            class="mb-0"
-            size="sm"
-            :color="filters.stage === '종결' ? 'warning' : 'secondary'"
-            :variant="filters.stage === '종결' ? 'fill' : 'outline'"
-            @click="filters.stage = '종결'"
-          >
-            종결
-          </ArgonButton>
+        <!-- 지원진행상태 (담당자/관리자: 전체 / 검토 / 보완 / 계획·중점·긴급 / 반려) -->
+        <label class="form-label text-sm">지원진행상태</label>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <div class="form-check mb-0">
+            <input id="org-stage-all" v-model="filters.stage" type="radio" value="전체" class="form-check-input" />
+            <label class="form-check-label text-sm" for="org-stage-all">전체 (기본값)</label>
+          </div>
+          <div class="form-check mb-0">
+            <input id="org-stage-review" v-model="filters.stage" type="radio" value="검토" class="form-check-input" />
+            <label class="form-check-label text-sm" for="org-stage-review">검토</label>
+          </div>
+          <div class="form-check mb-0">
+            <input id="org-stage-supple" v-model="filters.stage" type="radio" value="보완" class="form-check-input" />
+            <label class="form-check-label text-sm" for="org-stage-supple">보완</label>
+          </div>
+          <div class="form-check mb-0">
+            <input id="org-stage-plan" v-model="filters.stage" type="radio" value="계획" class="form-check-input" />
+            <label class="form-check-label text-sm" for="org-stage-plan">계획</label>
+          </div>
+          <div class="form-check mb-0">
+            <input id="org-stage-focus" v-model="filters.stage" type="radio" value="중점" class="form-check-input" />
+            <label class="form-check-label text-sm" for="org-stage-focus">중점</label>
+          </div>
+          <div class="form-check mb-0">
+            <input id="org-stage-urgent" v-model="filters.stage" type="radio" value="긴급" class="form-check-input" />
+            <label class="form-check-label text-sm" for="org-stage-urgent">긴급</label>
+          </div>
+          <div class="form-check mb-0">
+            <input id="org-stage-reject" v-model="filters.stage" type="radio" value="반려" class="form-check-input" />
+            <label class="form-check-label text-sm" for="org-stage-reject">반려</label>
+          </div>
         </div>
 
         <hr class="horizontal dark my-3" />
 
-        <!-- 결재/결과 진행 -->
-        <label class="form-label text-sm">결재/결과 진행</label>
-        <div class="form-check">
-          <input
-            id="p1"
-            class="form-check-input"
-            type="checkbox"
-            v-model="filters.progress.review"
-          />
-          <label class="form-check-label text-sm" for="p1">검토</label>
-        </div>
-        <div class="form-check">
-          <input
-            id="p2"
-            class="form-check-input"
-            type="checkbox"
-            v-model="filters.progress.approve"
-          />
-          <label class="form-check-label text-sm" for="p2">승인</label>
-        </div>
-        <div class="form-check">
-          <input
-            id="p3"
-            class="form-check-input"
-            type="checkbox"
-            v-model="filters.progress.reject"
-          />
-          <label class="form-check-label text-sm" for="p3">반려</label>
-        </div>
-        <div class="form-check">
-          <input
-            id="p4"
-            class="form-check-input"
-            type="checkbox"
-            v-model="filters.progress.done"
-          />
-          <label class="form-check-label text-sm" for="p4">결과</label>
+        <!-- 계획/결과 진행 -->
+        <label class="form-label text-sm">계획/결과 진행</label>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <div class="form-check mb-0">
+            <input
+              id="p1"
+              class="form-check-input"
+              type="checkbox"
+              v-model="filters.progress.review"
+            />
+            <label class="form-check-label text-sm" for="p1">검토</label>
+          </div>
+          <div class="form-check mb-0">
+            <input
+              id="p2"
+              class="form-check-input"
+              type="checkbox"
+              v-model="filters.progress.approve"
+            />
+            <label class="form-check-label text-sm" for="p2">승인</label>
+          </div>
+          <div class="form-check mb-0">
+            <input
+              id="p3"
+              class="form-check-input"
+              type="checkbox"
+              v-model="filters.progress.reject"
+            />
+            <label class="form-check-label text-sm" for="p3">반려</label>
+          </div>
+          <div class="form-check mb-0">
+            <input
+              id="p4"
+              class="form-check-input"
+              type="checkbox"
+              v-model="filters.progress.done"
+            />
+            <label class="form-check-label text-sm" for="p4">결과</label>
+          </div>
         </div>
       </SearchNavbar>
 
@@ -440,7 +400,7 @@ const viewResult = (row) => {
         :loading="listLoading"
         :rows-count="filteredRows.length"
         empty-text="검색 결과가 없습니다."
-        :colspan="11"
+        :colspan="9"
         v-model:page="page"
         :page-size="pageSize"
         :total="totalRows"
@@ -452,11 +412,9 @@ const viewResult = (row) => {
           <th class="text-center text-xs">지원신청일</th>
           <th class="text-center text-xs">지원신청서</th>
           <th class="text-center text-xs">담당자</th>
-          <th class="text-center text-xs">대기단계</th>
-          <th class="text-center text-xs">결재/결과 진행</th>
-          <th class="text-center text-xs">지원계획</th>
+          <th class="text-center text-xs">지원진행상태</th>
+          <th class="text-center text-xs">계획/결과 진행</th>
           <th class="text-center text-xs">상담내역</th>
-          <th class="text-center text-xs">지원결과</th>
         </template>
         <template #body>
           <tr v-for="(row, idx) in pagedRows" :key="row.sup_code || row.no">
@@ -524,7 +482,7 @@ const viewResult = (row) => {
                 </ArgonButton>
               </template>
             </td>
-            <td class="text-center text-sm">{{ row.stage }}</td>
+            <td class="text-center text-sm">{{ stageDisplayForManager(row.stage) }}</td>
 
             <td class="text-center text-sm">
               <div class="d-flex flex-column align-items-center gap-1">
@@ -571,33 +529,9 @@ const viewResult = (row) => {
               <ArgonButton
                 size="sm"
                 class="mb-0"
-                :color="row.canPlanView ? 'primary' : 'secondary'"
-                :disabled="!row.canPlanView"
-                @click="row.canPlanView && viewPlan(row)"
-              >
-                보기
-              </ArgonButton>
-            </td>
-
-            <td class="text-center">
-              <ArgonButton
-                size="sm"
-                class="mb-0"
                 :color="row.canCounselView ? 'info' : 'secondary'"
                 :disabled="!row.canCounselView"
                 @click="row.canCounselView && viewCounseling(row)"
-              >
-                보기
-              </ArgonButton>
-            </td>
-
-            <td class="text-center">
-              <ArgonButton
-                size="sm"
-                class="mb-0"
-                :color="row.canResultView ? 'primary' : 'secondary'"
-                :disabled="!row.canResultView"
-                @click="row.canResultView && viewResult(row)"
               >
                 보기
               </ArgonButton>

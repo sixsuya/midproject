@@ -505,8 +505,8 @@ onBeforeMount(() => {
 </script>
 
 <template>
-  <div class="container-fluid py-4 survey-form-page">
-    <div class="card shadow-sm">
+  <div class="survey-form-page">
+    <div class="card">
       <!-- 상단 기본 정보 영역 -->
       <div
         class="card-header d-flex justify-content-between align-items-start survey-header"
@@ -901,92 +901,105 @@ onBeforeMount(() => {
           <div class="modal-header">
             <h6 class="mb-0">조사지 미리보기</h6>
           </div>
-          <div class="modal-body preview-modal-body">
-            <div class="mb-3">
-              <div class="preview-survey-info small text-muted mb-2">
-                <span>{{ form.sv_name || "(조사지명)" }}</span>
-                <span class="ms-2"
-                  >{{ form.sver_ondate }} ~
+          <div class="modal-body preview-modal-body pt-3">
+            <div class="mb-3" style="max-width: 420px">
+              <label class="form-label text-sm">조사지</label>
+              <div class="bg-light border rounded px-3 py-2 text-sm">
+                {{ form.sv_name || "(조사지명)" }}
+                <span class="text-muted ms-2">
+                  {{ form.sver_ondate }} ~
                   {{
                     form.sver_enddate == "2999-12-31"
                       ? "무기한"
                       : form.sver_enddate
-                  }}</span
-                >
+                  }}
+                </span>
               </div>
             </div>
 
-            <div v-if="previewStructure.length" class="preview-content">
+            <!-- ApplyPage와 동일: 전체 질문 스크롤 영역 (대분류 > 소분류 > 질문 순) -->
+            <div
+              v-if="previewStructure.length"
+              class="survey-questions-scroll border rounded p-3 bg-light"
+              style="max-height: 60vh; overflow-y: auto"
+            >
               <template
                 v-for="(group, majIdx) in previewStructure"
                 :key="majIdx"
               >
-                <div class="preview-major">{{ group.major.name }}</div>
-                <template
-                  v-for="({ sub, questions }, subIdx) in group.subs"
-                  :key="sub.id || subIdx"
-                >
-                  <div class="preview-sub">{{ sub.name }}</div>
-                  <div
-                    v-for="(q, qIdx) in questions"
-                    :key="q.id || qIdx"
-                    class="preview-question-block"
+                <div class="mb-4">
+                  <div class="text-dark fw-semibold text-sm mb-2">
+                    {{ group.major.name }}
+                  </div>
+                  <template
+                    v-for="({ sub, questions }, subIdx) in group.subs"
+                    :key="sub.id || subIdx"
                   >
-                    <template v-if="q.answerType == 'OX'">
-                      <div class="preview-question-row">
-                        <span class="preview-q-no">{{ q.qNo }}.</span>
-                        <span class="preview-q-text">{{ q.text }}</span>
-                        <div class="preview-answer-ox ms-auto">
-                          <label class="d-flex align-items-center gap-1 mb-0">
-                            <input type="radio" disabled />
-                            <span class="small">예</span>
-                          </label>
-                          <label class="d-flex align-items-center gap-1 mb-0">
-                            <input type="radio" disabled />
-                            <span class="small">아니오</span>
-                          </label>
-                        </div>
-                      </div>
-                    </template>
-                    <template v-else-if="q.answerType == 'CHECK'">
-                      <div class="preview-q-line">
-                        <span class="preview-q-no">{{ q.qNo }}.</span>
-                        <span class="preview-q-text">{{ q.text }}</span>
+                    <div class="ms-2 mb-3">
+                      <div class="text-muted text-xs fw-medium mb-2">
+                        {{ sub.name }}
                       </div>
                       <div
-                        v-if="q.views?.length"
-                        class="preview-answer-check d-flex flex-wrap gap-3"
+                        v-for="(q, qIdx) in questions"
+                        :key="q.id || qIdx"
+                        class="py-2 border-bottom border-light"
                       >
-                        <label
-                          v-for="(v, vIdx) in q.views"
-                          :key="vIdx"
-                          class="d-flex align-items-center gap-1 mb-0 small"
+                        <div class="d-flex align-items-start gap-2 mb-2">
+                          <span
+                            class="text-muted text-sm"
+                            style="min-width: 20px"
+                          >
+                            {{ q.qNo }}.
+                          </span>
+                          <span class="text-sm">{{ q.text }}</span>
+                        </div>
+                        <!-- 라디오(예/아니오) -->
+                        <div
+                          v-if="q.answerType == 'OX'"
+                          class="ms-4 d-flex flex-wrap gap-3"
                         >
-                          <input
-                            type="checkbox"
-                            class="form-check-input"
+                          <label class="mb-0 d-flex align-items-center gap-1 text-sm">
+                            <input type="radio" disabled />
+                            예
+                          </label>
+                          <label class="mb-0 d-flex align-items-center gap-1 text-sm">
+                            <input type="radio" disabled />
+                            아니오
+                          </label>
+                        </div>
+                        <!-- 체크박스 -->
+                        <div
+                          v-else-if="q.answerType == 'CHECK' && q.views?.length"
+                          class="ms-4 d-flex flex-wrap gap-3"
+                        >
+                          <label
+                            v-for="(v, vIdx) in q.views"
+                            :key="vIdx"
+                            class="mb-0 d-flex align-items-center gap-1 text-sm"
+                          >
+                            <input
+                              type="checkbox"
+                              class="form-check-input"
+                              disabled
+                              readonly
+                            />
+                            {{ v.content }}
+                          </label>
+                        </div>
+                        <!-- 텍스트(텍스트에어리어) -->
+                        <div v-else class="ms-4 mb-0">
+                          <textarea
+                            class="form-control form-control-sm"
+                            rows="3"
                             disabled
                             readonly
+                            placeholder="내용을 입력하세요."
                           />
-                          <span>{{ v.content }}</span>
-                        </label>
+                        </div>
                       </div>
-                    </template>
-                    <template v-else>
-                      <div class="preview-q-line">
-                        <span class="preview-q-no">{{ q.qNo }}.</span>
-                        <span class="preview-q-text">{{ q.text }}</span>
-                      </div>
-                      <textarea
-                        class="form-control form-control-sm mt-1"
-                        rows="2"
-                        disabled
-                        readonly
-                        placeholder="사유를 입력하세요"
-                      ></textarea>
-                    </template>
-                  </div>
-                </template>
+                    </div>
+                  </template>
+                </div>
               </template>
             </div>
             <div v-else class="text-muted small py-4 text-center">
@@ -1202,76 +1215,5 @@ onBeforeMount(() => {
 
 .preview-modal-body {
   overflow-y: auto;
-  max-height: 60vh;
-}
-
-.preview-survey-info {
-  padding: 8px 12px;
-  background: #f8f9fa;
-  border-radius: 6px;
-}
-
-.preview-content {
-  font-size: 0.9rem;
-}
-
-.preview-major {
-  font-weight: 700;
-  font-size: 1rem;
-  margin-top: 16px;
-  margin-bottom: 8px;
-  padding-bottom: 4px;
-  border-bottom: 2px solid #dee2e6;
-}
-
-.preview-major:first-child {
-  margin-top: 0;
-}
-
-.preview-sub {
-  font-weight: 600;
-  color: #495057;
-  margin-top: 12px;
-  margin-bottom: 6px;
-  padding-left: 8px;
-  border-left: 3px solid #adb5bd;
-}
-
-.preview-question-block {
-  margin-bottom: 12px;
-  padding-left: 12px;
-}
-
-.preview-question-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.preview-q-line {
-  display: flex;
-  gap: 4px;
-}
-
-.preview-q-no {
-  flex-shrink: 0;
-  font-weight: 500;
-}
-
-.preview-q-text {
-  flex: 1;
-  min-width: 0;
-}
-
-.preview-answer-ox {
-  display: flex;
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-.preview-answer-check {
-  padding-left: 1.5em;
-  margin-top: 6px;
 }
 </style>

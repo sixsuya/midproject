@@ -24,13 +24,7 @@ const filters = ref({
   targetName: "",
   applicantName: "",
   managerName: "",
-  stage: {
-    review: false,
-    wait: false,
-    apply: false,
-    approve: false,
-    reject: false,
-  },
+  stage: "전체",
   progress: {
     review: false,
     approve: false,
@@ -46,13 +40,7 @@ const appliedFilters = ref({
   targetName: "",
   applicantName: "",
   managerName: "",
-  stage: {
-    review: false,
-    wait: false,
-    apply: false,
-    approve: false,
-    reject: false,
-  },
+  stage: "전체",
   progress: {
     review: false,
     approve: false,
@@ -75,11 +63,30 @@ function formatApplyDate(val) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** 대기단계 코드 → 한글 (e0_00 검토, e0_10 승인 등) */
+/** 지원진행상태: 백엔드 코드/한글명 → 표시용 한글 (지원자·담당자·관리자 공통) */
 function stageLabel(codeOrName) {
-  const map = { e0_00: "검토", e0_10: "승인", e0_80: "보완", e0_99: "반려", e1_00: "대기", e1_10: "신청", e1_20: "승인", e1_99: "반려" };
+  const map = {
+    e0_00: "검토",
+    e0_10: "승인",
+    e0_80: "보완",
+    e0_99: "반려",
+    e1_00: "대기",
+    e1_10: "신청",
+    e1_20: "승인",
+    e1_99: "반려",
+    d0_20: "계획",
+    d0_30: "중점",
+    d0_40: "긴급",
+  };
   const s = (codeOrName || "").trim();
   return map[s] || s || "";
+}
+
+/** 지원자용 테이블 표시: 검토/보완/승인 → "검토", 나머지(계획/중점/긴급/반려) 그대로 */
+function stageDisplayForApplicant(stage) {
+  const s = String(stage || "").trim();
+  if (s === "검토" || s === "보완" || s === "승인") return "검토";
+  return s || "—";
 }
 
 function mapApiRow(r, index) {
@@ -149,11 +156,7 @@ const onReset = () => {
   filters.value.targetName = "";
   filters.value.applicantName = "";
   filters.value.managerName = "";
-  filters.value.stage.review = false;
-  filters.value.stage.wait = false;
-  filters.value.stage.apply = false;
-  filters.value.stage.approve = false;
-  filters.value.stage.reject = false;
+  filters.value.stage = "전체";
   filters.value.progress.review = false;
   filters.value.progress.approve = false;
   filters.value.progress.reject = false;
@@ -183,7 +186,16 @@ const filteredRows = computed(() => {
       return false;
     if (f.managerName && !String(r.managerName || "").includes(f.managerName))
       return false;
-    if (f.stage !== "전체" && r.stage !== f.stage) return false;
+    if (f.stage !== "전체") {
+      const stage = String(r.stage || "").trim();
+      if (f.stage === "검토" && !["검토", "보완", "승인"].includes(stage))
+        return false;
+      if (
+        ["긴급", "중점", "계획", "반려"].includes(f.stage) &&
+        stage !== f.stage
+      )
+        return false;
+    }
 
     const progressChecks = f.progress;
     const anyProgressChecked =
@@ -223,17 +235,6 @@ onMounted(() => {
 // 지원신청서 보기 → 상담/리뷰 페이지
 const viewApply = (row) => {
   if (row.sup_code) router.push(`/review/${encodeURIComponent(row.sup_code)}`);
-  else alert("지원 정보를 찾을 수 없습니다.");
-};
-// 지원계획/결과 (sup_code = supportCode)
-const viewPlan = (row) => {
-  if (row.sup_code)
-    router.push(`/support-plan/${encodeURIComponent(row.sup_code)}`);
-  else alert("지원 정보를 찾을 수 없습니다.");
-};
-const viewResult = (row) => {
-  if (row.sup_code)
-    router.push(`/support-result/${encodeURIComponent(row.sup_code)}`);
   else alert("지원 정보를 찾을 수 없습니다.");
 };
 </script>
@@ -286,95 +287,124 @@ const viewResult = (row) => {
 
         <hr class="horizontal dark my-3" />
 
-        <!-- 대기단계 -->
-        <label class="form-label text-sm">대기단계</label>
-        <div class="d-flex flex-wrap gap-2">
-          <ArgonButton
-            class="mb-0"
-            size="sm"
-            :color="filters.stage === '전체' ? 'warning' : 'secondary'"
-            :variant="filters.stage === '전체' ? 'fill' : 'outline'"
-            @click="filters.stage = '전체'"
-          >
-            전체
-          </ArgonButton>
-          <ArgonButton
-            class="mb-0"
-            size="sm"
-            :color="filters.stage === '검토 중' ? 'warning' : 'secondary'"
-            :variant="filters.stage === '검토 중' ? 'fill' : 'outline'"
-            @click="filters.stage = '검토 중'"
-          >
-            검토 중
-          </ArgonButton>
-          <ArgonButton
-            class="mb-0"
-            size="sm"
-            :color="filters.stage === '대기' ? 'warning' : 'secondary'"
-            :variant="filters.stage === '대기' ? 'fill' : 'outline'"
-            @click="filters.stage = '대기'"
-          >
-            대기
-          </ArgonButton>
-          <ArgonButton
-            class="mb-0"
-            size="sm"
-            :color="filters.stage === '긴급' ? 'warning' : 'secondary'"
-            :variant="filters.stage === '긴급' ? 'fill' : 'outline'"
-            @click="filters.stage = '긴급'"
-          >
-            긴급
-          </ArgonButton>
-          <ArgonButton
-            class="mb-0"
-            size="sm"
-            :color="filters.stage === '종결' ? 'warning' : 'secondary'"
-            :variant="filters.stage === '종결' ? 'fill' : 'outline'"
-            @click="filters.stage = '종결'"
-          >
-            종결
-          </ArgonButton>
+        <!-- 지원진행상태 (지원자: 전체 / 검토 / 계획 / 중점 / 긴급 / 반려) -->
+        <label class="form-label text-sm">지원진행상태</label>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <div class="form-check mb-0">
+            <input
+              id="app-stage-all"
+              v-model="filters.stage"
+              type="radio"
+              value="전체"
+              class="form-check-input"
+            />
+            <label class="form-check-label text-sm" for="app-stage-all"
+              >전체</label
+            >
+          </div>
+          <div class="form-check mb-0">
+            <input
+              id="app-stage-review"
+              v-model="filters.stage"
+              type="radio"
+              value="검토"
+              class="form-check-input"
+            />
+            <label class="form-check-label text-sm" for="app-stage-review"
+              >검토</label
+            >
+          </div>
+          <div class="form-check mb-0">
+            <input
+              id="app-stage-plan"
+              v-model="filters.stage"
+              type="radio"
+              value="계획"
+              class="form-check-input"
+            />
+            <label class="form-check-label text-sm" for="app-stage-plan"
+              >계획</label
+            >
+          </div>
+          <div class="form-check mb-0">
+            <input
+              id="app-stage-focus"
+              v-model="filters.stage"
+              type="radio"
+              value="중점"
+              class="form-check-input"
+            />
+            <label class="form-check-label text-sm" for="app-stage-focus"
+              >중점</label
+            >
+          </div>
+          <div class="form-check mb-0">
+            <input
+              id="app-stage-urgent"
+              v-model="filters.stage"
+              type="radio"
+              value="긴급"
+              class="form-check-input"
+            />
+            <label class="form-check-label text-sm" for="app-stage-urgent"
+              >긴급</label
+            >
+          </div>
+          <div class="form-check mb-0">
+            <input
+              id="app-stage-reject"
+              v-model="filters.stage"
+              type="radio"
+              value="반려"
+              class="form-check-input"
+            />
+            <label class="form-check-label text-sm" for="app-stage-reject"
+              >반려</label
+            >
+          </div>
         </div>
 
         <hr class="horizontal dark my-3" />
 
-        <!-- 결재/결과 진행 -->
-        <label class="form-label text-sm">결재/결과 진행</label>
-        <div class="form-check">
-          <input
-            id="p1"
-            class="form-check-input"
-            type="checkbox"
-            v-model="filters.progress.review"
-          />
-          <label class="form-check-label text-sm" for="p1">검토</label>
-        </div>
-        <div class="form-check">
-          <input
-            id="p2"
-            class="form-check-input"
-            type="checkbox"
-            v-model="filters.progress.approve"
-          />
-          <label class="form-check-label text-sm" for="p2">승인</label>
-        </div>
-        <div class="form-check">
-          <input
-            id="p3"
-            class="form-check-input"
-            type="checkbox"
-            v-model="filters.progress.reject"
-          />
-          <label class="form-check-label text-sm" for="p3">반려</label>
-        </div>
-        <div class="form-check">
-          <input
-            id="p4"
-            class="form-check-input"
-            type="checkbox"
-            v-model="filters.progress.done"
-          />
-          <label class="form-check-label text-sm" for="p4">결과</label>
+        <!-- 계획/결과 진행 -->
+        <label class="form-label text-sm">계획/결과 진행</label>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <div class="form-check mb-0">
+            <input
+              id="p1"
+              class="form-check-input"
+              type="checkbox"
+              v-model="filters.progress.review"
+            />
+            <label class="form-check-label text-sm" for="p1">검토</label>
+          </div>
+          <div class="form-check mb-0">
+            <input
+              id="p2"
+              class="form-check-input"
+              type="checkbox"
+              v-model="filters.progress.approve"
+            />
+            <label class="form-check-label text-sm" for="p2">승인</label>
+          </div>
+          <div class="form-check mb-0">
+            <input
+              id="p3"
+              class="form-check-input"
+              type="checkbox"
+              v-model="filters.progress.reject"
+            />
+            <label class="form-check-label text-sm" for="p3">반려</label>
+          </div>
+          <div class="form-check mb-0">
+            <input
+              id="p4"
+              class="form-check-input"
+              type="checkbox"
+              v-model="filters.progress.done"
+            />
+            <label class="form-check-label text-sm" for="p4">결과</label>
+          </div>
         </div>
       </SearchNavbar>
 
@@ -391,7 +421,7 @@ const viewResult = (row) => {
             ? '본인이 신청한 지원신청이 없습니다.'
             : '검색 조건에 맞는 결과가 없습니다.'
         "
-        :colspan="10"
+        :colspan="8"
         v-model:page="page"
         :page-size="pageSize"
         :total="totalRows"
@@ -403,10 +433,8 @@ const viewResult = (row) => {
           <th class="text-center text-xs">지원신청일</th>
           <th class="text-center text-xs">지원신청서</th>
           <th class="text-center text-xs">담당자</th>
-          <th class="text-center text-xs">대기단계</th>
-          <th class="text-center text-xs">결재/결과 진행</th>
-          <th class="text-center text-xs">지원계획</th>
-          <th class="text-center text-xs">지원결과</th>
+          <th class="text-center text-xs">지원진행상태</th>
+          <th class="text-center text-xs">계획/결과 진행</th>
         </template>
         <template #body>
           <tr v-for="(row, idx) in pagedRows" :key="row.sup_code || row.no">
@@ -420,7 +448,12 @@ const viewResult = (row) => {
             <td class="text-center text-sm">{{ row.applyDate }}</td>
 
             <td class="text-center">
-              <ArgonButton size="sm" color="primary" class="mb-0" @click="viewApply(row)">
+              <ArgonButton
+                size="sm"
+                color="primary"
+                class="mb-0"
+                @click="viewApply(row)"
+              >
                 보기
               </ArgonButton>
             </td>
@@ -428,7 +461,9 @@ const viewResult = (row) => {
             <td class="text-center text-sm">
               {{ row.managerName || "미배정" }}
             </td>
-            <td class="text-center text-sm">{{ row.stage }}</td>
+            <td class="text-center text-sm">
+              {{ stageDisplayForApplicant(row.stage) }}
+            </td>
 
             <td class="text-center text-sm">
               <div class="d-flex flex-column align-items-center gap-1">
@@ -469,30 +504,6 @@ const viewResult = (row) => {
                   >
                 </div>
               </div>
-            </td>
-
-            <td class="text-center">
-              <ArgonButton
-                size="sm"
-                class="mb-0"
-                :color="row.canPlanView ? 'primary' : 'secondary'"
-                :disabled="!row.canPlanView"
-                @click="row.canPlanView && viewPlan(row)"
-              >
-                보기
-              </ArgonButton>
-            </td>
-
-            <td class="text-center">
-              <ArgonButton
-                size="sm"
-                class="mb-0"
-                :color="row.canResultView ? 'primary' : 'secondary'"
-                :disabled="!row.canResultView"
-                @click="row.canResultView && viewResult(row)"
-              >
-                보기
-              </ArgonButton>
             </td>
           </tr>
         </template>

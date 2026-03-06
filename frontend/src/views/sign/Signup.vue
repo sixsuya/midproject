@@ -412,41 +412,43 @@ const searchAddress = () => {
               <h5 class="font-weight-bolder">회원 가입</h5>
             </div>
 
-            <!-- 수정: 회원 유형 버튼 선택 시 색상 표시 -->
+            <!-- 회원 유형 버튼 선택 (기능별 색: 선택=success, 미선택=secondary) -->
             <div class="row px-xl-5 px-sm-4 px-3 mb-4 text-center">
               <div class="col-4 px-1">
-                <!-- 기본적으로 일반회원이 선택되게 설정 -->
-                <argon-button
+                <ArgonButton
                   :variant="userType === '일반회원' ? 'gradient' : 'outline'"
                   :color="userType === '일반회원' ? 'success' : 'secondary'"
                   fullWidth
+                  size="lg"
                   class="rounded-0 py-2 text-nowrap"
                   @click="selectUserType('일반회원')"
                 >
                   일반 회원
-                </argon-button>
+                </ArgonButton>
               </div>
               <div class="col-4 px-1">
-                <argon-button
+                <ArgonButton
                   :variant="userType === '기관담당자' ? 'gradient' : 'outline'"
                   :color="userType === '기관담당자' ? 'success' : 'secondary'"
                   fullWidth
+                  size="lg"
                   class="rounded-0 py-2 text-nowrap"
                   @click="selectUserType('기관담당자')"
                 >
                   기관 담당자
-                </argon-button>
+                </ArgonButton>
               </div>
               <div class="col-4 px-1">
-                <argon-button
+                <ArgonButton
                   :variant="userType === '기관관리자' ? 'gradient' : 'outline'"
                   :color="userType === '기관관리자' ? 'success' : 'secondary'"
                   fullWidth
+                  size="lg"
                   class="rounded-0 py-2 text-nowrap"
                   @click="selectUserType('기관관리자')"
                 >
                   기관 관리자
-                </argon-button>
+                </ArgonButton>
               </div>
               <p class="text-xs font-weight-bold mt-3 mb-0 text-secondary">
                 회원 유형을 선택해주세요
@@ -457,7 +459,8 @@ const searchAddress = () => {
               <form role="form" @submit.prevent="handleSignUp">
                 <!-- 이름 -->
                 <div class="mb-3">
-                  <argon-input
+                  <label class="form-label text-sm">이름</label>
+                  <ArgonInput
                     v-model="name"
                     placeholder="이름"
                     size="lg"
@@ -467,8 +470,9 @@ const searchAddress = () => {
 
                 <!-- 아이디 중복 체크 -->
                 <div class="mb-3">
+                  <label class="form-label text-sm">아이디</label>
                   <div class="d-flex gap-2">
-                    <argon-input
+                    <ArgonInput
                       v-model="userid"
                       placeholder="아이디 (4~15자)"
                       size="lg"
@@ -478,15 +482,16 @@ const searchAddress = () => {
                         idErrorMessage = '';
                       "
                     />
-                    <argon-button
+                    <ArgonButton
                       type="button"
                       variant="outline"
                       color="success"
-                      class="rounded-0 text-nowrap"
-                      style="height: 46px"
+                      size="lg"
+                      class="rounded-0 text-nowrap align-self-end"
                       @click="checkIdDuplication"
-                      >중복검사</argon-button
                     >
+                      중복검사
+                    </ArgonButton>
                   </div>
                   <p
                     v-if="idValidationMessage || idErrorMessage"
@@ -504,7 +509,8 @@ const searchAddress = () => {
 
                 <!-- 비밀번호 -->
                 <div class="mb-3">
-                  <argon-input
+                  <label class="form-label text-sm">비밀번호</label>
+                  <ArgonInput
                     v-model="password"
                     type="password"
                     placeholder="비밀번호"
@@ -513,7 +519,8 @@ const searchAddress = () => {
                   />
                 </div>
                 <div class="mb-3">
-                  <argon-input
+                  <label class="form-label text-sm">비밀번호 확인</label>
+                  <ArgonInput
                     v-model="confirmPassword"
                     type="password"
                     placeholder="비밀번호 확인"
@@ -530,8 +537,9 @@ const searchAddress = () => {
 
                 <!-- 이메일 -->
                 <div class="mb-3">
+                  <label class="form-label text-sm">이메일</label>
                   <div class="d-flex gap-2">
-                    <argon-input
+                    <ArgonInput
                       v-model="email"
                       type="email"
                       placeholder="이메일"
@@ -539,17 +547,17 @@ const searchAddress = () => {
                       class="rounded-0 flex-grow-1 mb-0"
                       @input="resetEmailVerificationState"
                     />
-                    <argon-button
+                    <ArgonButton
                       type="button"
                       variant="outline"
                       color="success"
-                      class="rounded-0 text-nowrap"
-                      style="height: 46px"
+                      size="lg"
+                      class="rounded-0 text-nowrap align-self-end"
                       :disabled="emailButtonDisabled"
                       @click="sendEmailVerification"
                     >
                       {{ emailButtonLabel }}
-                    </argon-button>
+                    </ArgonButton>
                   </div>
                   <p
                     v-if="emailErrorMessage"
@@ -559,24 +567,26 @@ const searchAddress = () => {
                   </p>
                   <!-- 인증번호 입력 (발송 후 표시) -->
                   <div v-if="showAuthSection && !isEmailVerified" class="mt-2">
+                    <label class="form-label text-sm">인증번호</label>
                     <div class="d-flex gap-2">
-                      <argon-input
+                      <ArgonInput
                         v-model="authCodeInput"
                         placeholder="인증번호 6자리"
-                        class="rounded-0 flex-grow-1"
+                        size="lg"
+                        class="rounded-0 flex-grow-1 mb-0"
                         maxlength="6"
                       />
-                      <argon-button
+                      <ArgonButton
                         type="button"
                         variant="outline"
                         color="dark"
-                        class="rounded-0 text-nowrap"
-                        style="height: 46px"
+                        size="lg"
+                        class="rounded-0 text-nowrap align-self-end"
                         :disabled="isVerifying"
                         @click="confirmAuthCode"
                       >
                         {{ isVerifying ? "확인중..." : "인증" }}
-                      </argon-button>
+                      </ArgonButton>
                     </div>
                     <p
                       v-if="authMessage"
@@ -604,66 +614,77 @@ const searchAddress = () => {
 
                 <!-- 연락처 -->
                 <div class="mb-3">
+                  <label class="form-label text-sm">연락처</label>
                   <ArgonInput
                     v-model="tel"
                     type="tel"
                     maxlength="11"
                     placeholder="연락처 (예시 : 01012345678)"
                     size="lg"
-                    class="rounded-3 mb-3"
+                    class="rounded-0"
                     @update:model-value="(v) => (tel = (v || '').replace(/\D/g, ''))"
                   />
                 </div>
 
                 <!-- 생년월일 -->
-                <ArgonInput
-                  v-model="bd"
-                  type="date"
-                  placeholder="생년월일을 선택해주세요"
-                  size="lg"
-                  class="rounded-3 mb-3"
-                />
+                <div class="mb-3">
+                  <label class="form-label text-sm">생년월일</label>
+                  <ArgonInput
+                    v-model="bd"
+                    type="date"
+                    placeholder="생년월일을 선택해주세요"
+                    size="lg"
+                    class="rounded-0"
+                  />
+                </div>
 
                 <!-- 주소 -->
                 <div class="mb-3">
+                  <label class="form-label text-sm">우편번호</label>
                   <div class="d-flex gap-2 mb-2">
-                    <ArgonInput
+                    <input
                       v-model="zipCode"
+                      type="text"
+                      class="form-control form-control-lg rounded-0 sign-input-readonly flex-grow-1"
                       placeholder="우편번호"
                       readonly
                     />
-
                     <ArgonButton
                       type="button"
                       variant="outline"
                       color="success"
-                      class="rounded-0 text-nowrap"
-                      style="height: 46px"
+                      size="lg"
+                      class="rounded-0 text-nowrap align-self-end"
                       @click="searchAddress"
                     >
                       주소 검색
                     </ArgonButton>
                   </div>
 
-                  <ArgonInput
+                  <label class="form-label text-sm">기본 주소</label>
+                  <input
                     v-model="address"
+                    type="text"
+                    class="form-control form-control-lg rounded-0 sign-input-readonly mb-2"
                     placeholder="기본 주소"
                     readonly
-                    size="lg"
-                    class="mb-2"
                   />
 
+                  <label class="form-label text-sm">상세 주소</label>
                   <ArgonInput
                     v-model="detailAddress"
                     placeholder="상세 주소를 입력해주세요"
+                    size="lg"
+                    class="rounded-0"
                   />
                 </div>
 
                 <!-- 기관 선택 -->
+                <label class="form-label text-sm">기관</label>
                 <select
                   v-model="org"
-                  class="form-select form-select-lg rounded-0 border-gray-300"
-                  style="height: 46px; font-size: 0.875rem"
+                  class="form-select form-select-lg rounded-0 border-gray-300 mb-3"
+                  style="font-size: 0.875rem"
                 >
                   <option disabled value="">기관을 선택해주세요</option>
 
@@ -695,8 +716,8 @@ const searchAddress = () => {
                     fullWidth
                     color="success"
                     variant="gradient"
-                    class="rounded-0"
                     size="lg"
+                    class="rounded-0 py-2"
                   >
                     가입하기
                   </ArgonButton>
@@ -733,13 +754,16 @@ const searchAddress = () => {
           {{ modalMessage }}
         </div>
         <div class="modal-footer border-0 pt-0 justify-content-center">
-          <argon-button
+          <ArgonButton
+            type="button"
             color="success"
             variant="gradient"
+            size="lg"
             class="rounded-0 px-5"
             @click="handleModalConfirm"
-            >확인</argon-button
           >
+            확인
+          </ArgonButton>
         </div>
       </div>
     </div>

@@ -1,6 +1,5 @@
 <script setup>
 import { defineProps, defineEmits, computed } from "vue";
-import ArgonButton from "@/components/ArgonButton.vue";
 
 const props = defineProps({
   surveys: {
@@ -57,16 +56,15 @@ const surveysWithVersion = computed(() => {
           <td>{{ data.sv_time }}</td>
           <td>{{ data.sver_ondate }}</td>
           <td>{{ data.sver_enddate == null ? "2999-12-31" : data.sver_enddate }}</td>
-          <td>
-            <ArgonButton
-              size="sm"
-              variant="outline"
-              color="dark"
-              type="button"
-              @click="emit('edit', data)"
+          <td class="text-center">
+            <a
+              href="javascript:;"
+              class="text-secondary"
+              title="상세보기/수정"
+              @click.prevent="emit('edit', data)"
             >
-              ✏
-            </ArgonButton>
+              <i class="fas fa-pencil-alt"></i>
+            </a>
           </td>
         </tr>
       </tbody>

@@ -469,15 +469,6 @@ const findAddress = () => {
             <p v-if="applicantsLoading" class="text-muted text-sm mb-2">
               로딩 중...
             </p>
-            <ArgonButton
-              color="success"
-              variant="gradient"
-              class="w-100 mb-3"
-              @click="openModal"
-            >
-              지원자 추가
-            </ArgonButton>
-
             <ul class="list-group applicant-list">
               <li
                 v-for="a in applicants"
@@ -492,6 +483,14 @@ const findAddress = () => {
                 </div>
               </li>
             </ul>
+            <ArgonButton
+              color="success"
+              variant="gradient"
+              class="w-100 mt-3 mb-0"
+              @click="openModal"
+            >
+              지원대상자 등록
+            </ArgonButton>
           </div>
         </div>
       </div>

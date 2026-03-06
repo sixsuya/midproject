@@ -5,6 +5,8 @@ import axios from "axios";
 import { useAuthStore } from "@/store/auth";
 import ArgonButton from "@/components/ArgonButton.vue";
 import ArgonInput from "@/components/ArgonInput.vue";
+import AlertModal from "@/views/modal/AlertModal.vue";
+import ConfirmModal from "@/views/modal/ConfirmModal.vue";
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -27,6 +29,42 @@ const answers = ref({});
 
 // 작성일
 const writeDate = ref("");
+
+// ===== AlertModal / ConfirmModal =====
+const alertModal = ref({ show: false, type: "success", title: "알림", message: "" });
+/** AlertModal 닫을 때 실행할 콜백 (저장 성공 시 메인 이동 등) */
+let onAlertCloseCallback = null;
+
+function showAlert(type, title, message) {
+  alertModal.value = { show: true, type, title, message: message ?? "" };
+}
+
+function closeAlertModal() {
+  alertModal.value.show = false;
+  if (typeof onAlertCloseCallback === "function") {
+    onAlertCloseCallback();
+    onAlertCloseCallback = null;
+  }
+}
+
+const confirmCancelModal = ref({ show: false, title: "취소 확인", message: "" });
+
+function openConfirmCancel() {
+  confirmCancelModal.value = {
+    show: true,
+    title: "취소 확인",
+    message: "지금까지 작성한 내용이 모두 취소됩니다. 정말 취소하시겠습니까?",
+  };
+}
+
+function onConfirmCancel() {
+  confirmCancelModal.value.show = false;
+  router.push("/applicant");
+}
+
+function closeConfirmCancel() {
+  confirmCancelModal.value.show = false;
+}
 
 // ===== 좌측(지원대상자) =====
 const targetLoading = ref(true);
@@ -161,7 +199,7 @@ const loadTargets = async () => {
     targets.value = [];
     selectedMcPn.value = "";
     const msg = err.response?.data?.error || err.message;
-    if (msg) alert(`지원대상자 목록 조회 실패: ${msg}`);
+    if (msg) showAlert("error", "조회 실패", `지원대상자 목록 조회 실패: ${msg}`);
   } finally {
     targetLoading.value = false;
   }
@@ -176,7 +214,7 @@ const loadCurrentSurvey = async () => {
     console.error("[loadCurrentSurvey] error:", err);
     currentSurvey.value = null;
     const msg = err.response?.data?.error || err.message;
-    if (msg) alert(`조사지 조회 실패: ${msg}`);
+    if (msg) showAlert("error", "조회 실패", `조사지 조회 실패: ${msg}`);
   }
 };
 
@@ -234,24 +272,24 @@ onMounted(async () => {
 const onSave = async () => {
   try {
     if (!selectedMcPn.value) {
-      alert("지원대상자를 선택해 주세요.");
+      showAlert("error", "알림", "지원대상자를 선택해 주세요.");
       return;
     }
     if (!selectedSurveyCode.value) {
-      alert("조사지 정보가 없습니다.");
+      showAlert("error", "알림", "조사지 정보가 없습니다.");
       return;
     }
 
     // 질문 타입별로 모든 문항에 답변이 있는지 검사
     const missing = allQuestions.value.filter((q) => !isQuestionAnswered(q));
     if (missing.length > 0) {
-      alert("모든 항목에 답변해 주세요. 답변하지 않은 문항이 있습니다.");
+      showAlert("error", "알림", "모든 항목에 답변해 주세요. 답변하지 않은 문항이 있습니다.");
       return;
     }
 
     const memNo = authStore.user?.m_no;
     if (!memNo) {
-      alert("로그인 정보가 없습니다. 다시 로그인해 주세요.");
+      showAlert("error", "알림", "로그인 정보가 없습니다. 다시 로그인해 주세요.");
       return;
     }
     const reqYn = "e0_00"; // 부코드(판정 상태) 기본값
@@ -267,21 +305,17 @@ const onSave = async () => {
       answers: answers.value,
     };
 
-    const { data } = await apiPost("/applications", payload);
-    alert("저장되었습니다.");
-    if (data?.sup_code) {
-      // 필요 시 상담/리뷰 페이지로 이동 등 처리 가능
-    }
+    await apiPost("/applications", payload);
+    onAlertCloseCallback = () => router.push("/applicant");
+    showAlert("success", "알림", "저장되었습니다.");
   } catch (err) {
     console.error("[onSave] submit error:", err);
-    alert("저장 중 오류가 발생했습니다. 콘솔을 확인해 주세요.");
+    showAlert("error", "저장 실패", "저장 중 오류가 발생했습니다. 콘솔을 확인해 주세요.");
   }
 };
 
 const onCancel = () => {
-  if (confirm("지금까지 작성한 내용이 모두 취소됩니다. 정말 취소하시겠습니까?")) {
-    router.push("/applicant");
-  }
+  openConfirmCancel();
 };
 </script>
 
@@ -505,5 +539,20 @@ const onCancel = () => {
       </div>
       <!-- /우측 -->
     </div>
+
+    <AlertModal
+      :show="alertModal.show"
+      :type="alertModal.type"
+      :title="alertModal.title"
+      :message="alertModal.message"
+      @close="closeAlertModal"
+    />
+    <ConfirmModal
+      :show="confirmCancelModal.show"
+      title="취소 확인"
+      :message="confirmCancelModal.message"
+      @confirm="onConfirmCancel"
+      @close="closeConfirmCancel"
+    />
   </div>
 </template>
