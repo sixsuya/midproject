@@ -1,11 +1,14 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { useAuthStore } from "@/store/auth";
+import { usePagination } from "@/composables/usePagination";
+import SearchNavbar from "@/views/components/SearchNavbar.vue";
+import MainTable from "@/views/components/MainTable.vue";
+import ArgonButton from "@/components/ArgonButton.vue";
+import ArgonInput from "@/components/ArgonInput.vue";
 
 const authStore = useAuthStore();
 
-const itemsPerPage = 10;
-const currentPage = ref(1);
 const tableData = ref([]);
 const searchBy = ref("m_nm");
 const searchValue = ref("");
@@ -53,17 +56,24 @@ const loadList = async () => {
 };
 
 const doSearch = () => {
-  currentPage.value = 1;
   loadList();
 };
 
-const totalPages = computed(() =>
-  Math.ceil(tableData.value.length / itemsPerPage),
-);
-const paginatedData = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage;
-  return tableData.value.slice(start, start + itemsPerPage);
-});
+const onReset = () => {
+  searchBy.value = "m_nm";
+  searchValue.value = "";
+  loadList();
+};
+
+const filteredRows = computed(() => tableData.value);
+
+const {
+  page,
+  pageSize,
+  totalItems: totalRows,
+  pagedItems: pagedRows,
+  rowDisplayNo,
+} = usePagination(() => filteredRows.value, 10);
 
 const statusBadge = (status) => ({
   "bg-gradient-success": status === "승인됨",
@@ -147,8 +157,6 @@ const deleteSelected = () => {
   }
   if (confirm(`${selectedCount}개의 항목을 삭제하시겠습니까?`)) {
     tableData.value = tableData.value.filter((i) => !i.selected);
-    if (currentPage.value > totalPages.value)
-      currentPage.value = totalPages.value || 1;
   }
 };
 
@@ -158,120 +166,75 @@ onMounted(() => loadList());
 <template>
   <div class="container-fluid py-4">
     <div class="row">
-      <div class="col-lg-3 mb-4">
-        <div class="card">
-          <div class="card-header pb-0">
-            <h6 class="mb-0">지원자 검색</h6>
-          </div>
-          <div class="card-body">
-            <label class="form-label text-sm">검색 조건</label>
-            <select v-model="searchBy" class="form-select form-select-sm mb-2">
-              <option value="m_nm">이름</option>
-              <option value="m_org">소속기관</option>
-              <option value="m_id">아이디</option>
-            </select>
-            <input
-              v-model="searchValue"
-              type="text"
-              class="form-control form-control-sm mb-2"
-              placeholder="검색어 입력"
-              @keyup.enter="doSearch"
-            />
-            <button class="btn btn-sm btn-success w-100 mb-0" @click="doSearch">
-              검색
-            </button>
-          </div>
-        </div>
-      </div>
+      <SearchNavbar title="지원자 검색" @search="doSearch" @reset="onReset">
+        <label class="form-label text-sm">검색 조건</label>
+        <select v-model="searchBy" class="form-select form-select-sm mb-2">
+          <option value="m_nm">이름</option>
+          <option value="m_org">소속기관</option>
+          <option value="m_id">아이디</option>
+        </select>
+        <ArgonInput
+          v-model="searchValue"
+          type="text"
+          size="sm"
+          placeholder="검색어 입력"
+          @keyup.enter="doSearch"
+        />
+      </SearchNavbar>
 
-      <div class="col-lg-9">
-        <div class="card mb-4">
-          <div class="card-header d-flex justify-content-between align-items-center pb-0">
-            <h6>지원자 상세 목록 관리</h6>
-            <button @click="deleteSelected" class="btn btn-sm btn-outline-danger">
-              선택삭제
-            </button>
-          </div>
-
-          <div class="card-body px-0 pt-0 pb-2">
-            <p v-if="listLoading" class="text-muted text-sm mb-0 px-3">로딩 중...</p>
-            <p v-else-if="listError" class="text-danger text-sm mb-0 px-3">{{ listError }}</p>
-            <div v-else class="table-responsive p-0">
-              <table class="table align-items-center mb-0">
-                <thead>
-                  <tr>
-                    <th class="text-center text-xxs font-weight-bolder opacity-7">선택</th>
-                    <th class="text-xxs font-weight-bolder opacity-7 ps-2">No.</th>
-                    <th class="text-xxs font-weight-bolder opacity-7 ps-2">아이디</th>
-                    <th class="text-xxs font-weight-bolder opacity-7 ps-2">지원자명</th>
-                    <th class="text-xxs font-weight-bolder opacity-7 ps-2">소속기관</th>
-                    <th class="text-xxs font-weight-bolder opacity-7 ps-2">연락처</th>
-                    <th class="text-xxs font-weight-bolder opacity-7 ps-2">이메일</th>
-                    <th class="text-center text-xxs font-weight-bolder opacity-7">상태</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(item, index) in paginatedData" :key="item.id">
-                    <td class="text-center">
-                      <input type="checkbox" v-model="item.selected" class="form-check-input" />
-                    </td>
-                    <td>{{ (currentPage - 1) * itemsPerPage + index + 1 }}</td>
-                    <td>{{ item.userId }}</td>
-                    <td>{{ item.userName }}</td>
-                    <td>{{ item.organName }}</td>
-                    <td>{{ item.phone }}</td>
-                    <td>{{ item.email }}</td>
-                    <td class="text-center">
-                      <span
-                        v-if="item.status === '승인요청'"
-                        class="badge badge-sm cursor-pointer"
-                        :class="statusBadge(item.status)"
-                        @click="openApprovalModal(item)"
-                      >
-                        {{ item.status }}
-                      </span>
-                      <span v-else class="badge badge-sm" :class="statusBadge(item.status)">
-                        {{ item.status }}
-                      </span>
-                    </td>
-                  </tr>
-                  <tr v-if="!listLoading && !listError && tableData.length === 0">
-                    <td colspan="8" class="text-center text-muted py-4">지원자가 없습니다.</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div
-              v-if="tableData.length > itemsPerPage"
-              class="d-flex justify-content-center py-3"
-            >
-              <nav>
-                <ul class="pagination pagination-sm mb-0">
-                  <li class="page-item" :class="{ disabled: currentPage === 1 }">
-                    <a class="page-link" href="javascript:;" @click="currentPage--">
-                      <i class="fa fa-angle-left"></i>
-                    </a>
-                  </li>
-                  <li
-                    v-for="page in totalPages"
-                    :key="page"
-                    class="page-item"
-                    :class="{ active: currentPage === page }"
-                  >
-                    <a class="page-link" href="javascript:;" @click="currentPage = page">{{ page }}</a>
-                  </li>
-                  <li class="page-item" :class="{ disabled: currentPage === totalPages }">
-                    <a class="page-link" href="javascript:;" @click="currentPage++">
-                      <i class="fa fa-angle-right"></i>
-                    </a>
-                  </li>
-                </ul>
-              </nav>
-            </div>
-          </div>
-        </div>
-      </div>
+      <MainTable
+        title="지원자 상세 목록 관리"
+        :list-error="listError"
+        :loading="listLoading"
+        :rows-count="filteredRows.length"
+        empty-text="지원자가 없습니다."
+        :colspan="8"
+        v-model:page="page"
+        :page-size="pageSize"
+        :total="totalRows"
+      >
+        <template #header-actions>
+          <ArgonButton size="sm" variant="outline" color="danger" @click="deleteSelected">
+            선택삭제
+          </ArgonButton>
+        </template>
+        <template #header>
+          <th class="text-center text-xxs font-weight-bolder opacity-7">선택</th>
+          <th class="text-xxs font-weight-bolder opacity-7 ps-2">No.</th>
+          <th class="text-xxs font-weight-bolder opacity-7 ps-2">아이디</th>
+          <th class="text-xxs font-weight-bolder opacity-7 ps-2">지원자명</th>
+          <th class="text-xxs font-weight-bolder opacity-7 ps-2">소속기관</th>
+          <th class="text-xxs font-weight-bolder opacity-7 ps-2">연락처</th>
+          <th class="text-xxs font-weight-bolder opacity-7 ps-2">이메일</th>
+          <th class="text-center text-xxs font-weight-bolder opacity-7">상태</th>
+        </template>
+        <template #body>
+          <tr v-for="(item, index) in pagedRows" :key="item.id">
+            <td class="text-center">
+              <input type="checkbox" v-model="item.selected" class="form-check-input" />
+            </td>
+            <td>{{ rowDisplayNo(index) }}</td>
+            <td>{{ item.userId }}</td>
+            <td>{{ item.userName }}</td>
+            <td>{{ item.organName }}</td>
+            <td>{{ item.phone }}</td>
+            <td>{{ item.email }}</td>
+            <td class="text-center">
+              <span
+                v-if="item.status === '승인요청'"
+                class="badge badge-sm cursor-pointer"
+                :class="statusBadge(item.status)"
+                @click="openApprovalModal(item)"
+              >
+                {{ item.status }}
+              </span>
+              <span v-else class="badge badge-sm" :class="statusBadge(item.status)">
+                {{ item.status }}
+              </span>
+            </td>
+          </tr>
+        </template>
+      </MainTable>
     </div>
 
     <!-- 승인/반려 모달 -->
@@ -288,19 +251,19 @@ onMounted(() => loadList());
                   {{ approvalTarget?.userName }} ({{ approvalTarget?.userId }}) 지원자에 대해 승인 또는 반려를 선택하세요.
                 </p>
                 <div class="d-flex justify-content-center gap-2 flex-wrap">
-                  <button class="btn btn-sm bg-gradient-success" :disabled="approvalSaving" @click="doApprove">승인</button>
-                  <button class="btn btn-sm bg-gradient-danger" :disabled="approvalSaving" @click="showRejectForm">반려</button>
-                  <button class="btn btn-sm bg-gradient-secondary" :disabled="approvalSaving" @click="closeApprovalModal">취소</button>
+                  <ArgonButton size="sm" color="success" variant="gradient" :disabled="approvalSaving" @click="doApprove">승인</ArgonButton>
+                  <ArgonButton size="sm" color="danger" variant="gradient" :disabled="approvalSaving" @click="showRejectForm">반려</ArgonButton>
+                  <ArgonButton size="sm" color="secondary" variant="gradient" :disabled="approvalSaving" @click="closeApprovalModal">취소</ArgonButton>
                 </div>
               </template>
               <template v-else>
                 <label class="form-label text-sm">반려사유 (선택, 향후 이메일 발송 예정)</label>
                 <textarea v-model="rejectReason" class="form-control form-control-sm mb-3" rows="4" placeholder="반려 사유를 입력하세요" />
                 <div class="d-flex justify-content-center gap-2 flex-wrap">
-                  <button class="btn btn-sm bg-gradient-danger" :disabled="approvalSaving" @click="doReject">
+                  <ArgonButton size="sm" color="danger" variant="gradient" :disabled="approvalSaving" @click="doReject">
                     {{ approvalSaving ? "처리 중..." : "반려 제출" }}
-                  </button>
-                  <button class="btn btn-sm bg-gradient-secondary" :disabled="approvalSaving" @click="approvalStep = 'choice'">뒤로</button>
+                  </ArgonButton>
+                  <ArgonButton size="sm" color="secondary" variant="gradient" :disabled="approvalSaving" @click="approvalStep = 'choice'">뒤로</ArgonButton>
                 </div>
               </template>
             </div>

@@ -604,43 +604,36 @@ const searchAddress = () => {
 
                 <!-- 연락처 -->
                 <div class="mb-3">
-                  <input
+                  <ArgonInput
                     v-model="tel"
                     type="tel"
                     maxlength="11"
                     placeholder="연락처 (예시 : 01012345678)"
                     size="lg"
-                    class="rounded-3 form-control form-control-lg mb-3"
-                    @input="tel = tel.replace(/\D/g, '')"
+                    class="rounded-3 mb-3"
+                    @update:model-value="(v) => (tel = (v || '').replace(/\D/g, ''))"
                   />
                 </div>
 
                 <!-- 생년월일 -->
-                <input
+                <ArgonInput
                   v-model="bd"
-                  type="text"
+                  type="date"
                   placeholder="생년월일을 선택해주세요"
                   size="lg"
-                  class="rounded-3 form-control form-control-lg mb-3"
-                  @focus="(e) => (e.target.type = 'date')"
-                  @blur="
-                    (e) => {
-                      if (!bd) e.target.type = 'text';
-                    }
-                  "
+                  class="rounded-3 mb-3"
                 />
 
                 <!-- 주소 -->
                 <div class="mb-3">
                   <div class="d-flex gap-2 mb-2">
-                    <input
+                    <ArgonInput
                       v-model="zipCode"
                       placeholder="우편번호"
                       readonly
-                      class="form-control"
                     />
 
-                    <argon-button
+                    <ArgonButton
                       type="button"
                       variant="outline"
                       color="success"
@@ -649,17 +642,18 @@ const searchAddress = () => {
                       @click="searchAddress"
                     >
                       주소 검색
-                    </argon-button>
+                    </ArgonButton>
                   </div>
 
-                  <input
+                  <ArgonInput
                     v-model="address"
                     placeholder="기본 주소"
                     readonly
-                    class="mb-2 form-control form-control-lg"
+                    size="lg"
+                    class="mb-2"
                   />
 
-                  <argon-input
+                  <ArgonInput
                     v-model="detailAddress"
                     placeholder="상세 주소를 입력해주세요"
                   />
@@ -696,15 +690,16 @@ const searchAddress = () => {
                   </select>
                 </div>
                 <div class="text-center mt-4">
-                  <argon-button
+                  <ArgonButton
                     type="submit"
                     fullWidth
                     color="success"
                     variant="gradient"
                     class="rounded-0"
                     size="lg"
-                    >가입하기</argon-button
                   >
+                    가입하기
+                  </ArgonButton>
                 </div>
                 <div class="text-center mt-3">
                   <span

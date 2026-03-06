@@ -3,6 +3,8 @@ import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import axios from "axios";
 import { useAuthStore } from "@/store/auth";
+import ArgonButton from "@/components/ArgonButton.vue";
+import ArgonInput from "@/components/ArgonInput.vue";
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -336,29 +338,29 @@ const onCancel = () => {
                 <hr class="horizontal dark my-3" />
 
                 <label class="form-label text-sm">장애유형</label>
-                <input
-                  class="form-control form-control-sm"
+                <ArgonInput
                   type="text"
-                  :value="selectedTarget?.mc_type ?? ''"
+                  size="sm"
+                  :model-value="selectedTarget?.mc_type ?? ''"
                   readonly
                 />
 
                 <div class="row mt-3">
                   <div class="col-6">
                     <label class="form-label text-sm">성별</label>
-                    <input
-                      class="form-control form-control-sm"
+                    <ArgonInput
                       type="text"
-                      :value="genderLabel(selectedTarget?.mc_gender)"
+                      size="sm"
+                      :model-value="genderLabel(selectedTarget?.mc_gender)"
                       readonly
                     />
                   </div>
                   <div class="col-6">
                     <label class="form-label text-sm">생년월일</label>
-                    <input
-                      class="form-control form-control-sm"
+                    <ArgonInput
                       type="date"
-                      :value="toDateInput(selectedTarget?.mc_bd)"
+                      size="sm"
+                      :model-value="toDateInput(selectedTarget?.mc_bd)"
                       readonly
                     />
                   </div>
@@ -378,12 +380,14 @@ const onCancel = () => {
 
               <div class="d-flex align-items-center gap-2">
                 <span class="text-sm">작성일</span>
-                <div class="input-group input-group-sm" style="width: 180px">
-                  <span class="input-group-text"
-                    ><i class="ni ni-calendar-grid-58"></i
-                  ></span>
-                  <input type="date" class="form-control" v-model="writeDate" />
-                </div>
+                <ArgonInput
+                  v-model="writeDate"
+                  type="date"
+                  size="sm"
+                  icon="ni ni-calendar-grid-58"
+                  icon-dir="left"
+                  style="width: 180px"
+                />
               </div>
             </div>
           </div>
@@ -391,10 +395,11 @@ const onCancel = () => {
           <div class="card-body pt-3">
             <div class="mb-3" style="max-width: 420px">
               <label class="form-label text-sm">조사지</label>
-              <input
+              <ArgonInput
                 type="text"
-                class="form-control form-control-sm bg-light"
-                :value="currentSurvey?.sv_name ?? survey?.sv_name ?? ''"
+                size="sm"
+                class="bg-light"
+                :model-value="currentSurvey?.sv_name ?? survey?.sv_name ?? ''"
                 readonly
               />
             </div>
@@ -492,10 +497,8 @@ const onCancel = () => {
             </div>
 
             <div class="d-flex justify-content-end gap-2 mt-4">
-              <button class="btn btn-warning mb-0" @click="onSave">저장</button>
-              <button class="btn btn-outline-secondary mb-0" @click="onCancel">
-                취소
-              </button>
+              <ArgonButton color="warning" class="mb-0" @click="onSave">저장</ArgonButton>
+              <ArgonButton variant="outline" color="secondary" class="mb-0" @click="onCancel">취소</ArgonButton>
             </div>
           </div>
         </div>

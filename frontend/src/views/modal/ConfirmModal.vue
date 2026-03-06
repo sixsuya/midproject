@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch } from "vue";
+import ArgonButton from "@/components/ArgonButton.vue";
 
 const props = defineProps({
   show: { type: Boolean, default: false },
@@ -63,21 +64,23 @@ function onClose() {
               />
             </template>
             <div class="confirm-modal-actions">
-              <button
+              <ArgonButton
                 type="button"
-                class="btn btn-confirm-yes rounded"
+                color="success"
+                class="rounded"
                 :disabled="showReason && !(reasonText && reasonText.trim())"
                 @click="onConfirm"
               >
                 {{ showReason ? "확인" : "네" }}
-              </button>
-              <button
+              </ArgonButton>
+              <ArgonButton
                 type="button"
-                class="btn btn-confirm-no rounded"
+                color="danger"
+                class="rounded"
                 @click="onClose"
               >
                 아니오
-              </button>
+              </ArgonButton>
             </div>
           </div>
         </div>

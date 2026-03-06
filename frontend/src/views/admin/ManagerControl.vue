@@ -1,11 +1,14 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { useAuthStore } from "@/store/auth";
+import { usePagination } from "@/composables/usePagination";
+import SearchNavbar from "@/views/components/SearchNavbar.vue";
+import MainTable from "@/views/components/MainTable.vue";
+import ArgonButton from "@/components/ArgonButton.vue";
+import ArgonInput from "@/components/ArgonInput.vue";
 
 const authStore = useAuthStore();
 
-const itemsPerPage = 10;
-const currentPage = ref(1);
 const tableData = ref([]);
 const searchBy = ref("m_nm");
 const searchValue = ref("");
@@ -53,19 +56,24 @@ const loadManagers = async () => {
 };
 
 const doSearch = () => {
-  currentPage.value = 1;
   loadManagers();
 };
 
-// ====== 페이징 계산 ======
-const totalPages = computed(() =>
-  Math.ceil(tableData.value.length / itemsPerPage),
-);
+const onReset = () => {
+  searchBy.value = "m_nm";
+  searchValue.value = "";
+  loadManagers();
+};
 
-const paginatedData = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage;
-  return tableData.value.slice(start, start + itemsPerPage);
-});
+const filteredRows = computed(() => tableData.value);
+
+const {
+  page,
+  pageSize,
+  totalItems: totalRows,
+  pagedItems: pagedRows,
+  rowDisplayNo,
+} = usePagination(() => filteredRows.value, 10);
 
 // ====== 상태별 배지 ======
 const statusBadge = (status) => ({
@@ -157,8 +165,6 @@ const deleteSelected = () => {
   }
   if (confirm(`${selectedCount}개의 항목을 삭제하시겠습니까?`)) {
     tableData.value = tableData.value.filter((i) => !i.selected);
-    if (currentPage.value > totalPages.value)
-      currentPage.value = totalPages.value || 1;
   }
 };
 
@@ -231,169 +237,98 @@ onMounted(() => loadManagers());
 <template>
   <div class="container-fluid py-4">
     <div class="row">
-      <!-- ====== 좌측: 담당자 검색 ====== -->
-      <div class="col-lg-3 mb-4">
-        <div class="card">
-          <div class="card-header pb-0">
-            <h6 class="mb-0">담당자 검색</h6>
-          </div>
-          <div class="card-body">
-            <label class="form-label text-sm">검색 조건</label>
-            <select v-model="searchBy" class="form-select form-select-sm mb-2">
-              <option value="m_nm">이름</option>
-              <option value="m_org">소속기관</option>
-              <option value="m_id">아이디</option>
-            </select>
-            <input
-              v-model="searchValue"
-              type="text"
-              class="form-control form-control-sm mb-2"
-              placeholder="검색어 입력"
-              @keyup.enter="doSearch"
-            />
-            <button class="btn btn-sm btn-success w-100 mb-0" @click="doSearch">
-              검색
-            </button>
-          </div>
-        </div>
-      </div>
+      <SearchNavbar title="담당자 검색" @search="doSearch" @reset="onReset">
+        <label class="form-label text-sm">검색 조건</label>
+        <select v-model="searchBy" class="form-select form-select-sm mb-2">
+          <option value="m_nm">이름</option>
+          <option value="m_org">소속기관</option>
+          <option value="m_id">아이디</option>
+        </select>
+        <ArgonInput
+          v-model="searchValue"
+          type="text"
+          size="sm"
+          placeholder="검색어 입력"
+          @keyup.enter="doSearch"
+        />
+      </SearchNavbar>
 
-      <!-- ====== 우측: 테이블 ====== -->
-      <div class="col-lg-9">
-    <div class="card mb-4">
-      <div
-        class="card-header d-flex justify-content-between align-items-center pb-0"
+      <MainTable
+        title="담당자 상세 목록 관리"
+        :list-error="listError"
+        :loading="listLoading"
+        :rows-count="filteredRows.length"
+        empty-text="담당자가 없습니다."
+        :colspan="9"
+        v-model:page="page"
+        :page-size="pageSize"
+        :total="totalRows"
       >
-        <h6>담당자 상세 목록 관리</h6>
-        <button @click="deleteSelected" class="btn btn-sm btn-outline-danger">
-          선택삭제
-        </button>
-      </div>
-
-      <div class="card-body px-0 pt-0 pb-2">
-        <p v-if="listLoading" class="text-muted text-sm mb-0 px-3">로딩 중...</p>
-        <p v-else-if="listError" class="text-danger text-sm mb-0 px-3">{{ listError }}</p>
-        <div v-else class="table-responsive p-0">
-          <table class="table align-items-center mb-0">
-            <thead>
-              <tr>
-                <th class="text-center text-xxs font-weight-bolder opacity-7">
-                  선택
-                </th>
-                <th class="text-xxs font-weight-bolder opacity-7 ps-2">No.</th>
-                <th class="text-xxs font-weight-bolder opacity-7 ps-2">
-                  아이디
-                </th>
-                <th class="text-xxs font-weight-bolder opacity-7 ps-2">
-                  담당자명
-                </th>
-                <th class="text-xxs font-weight-bolder opacity-7 ps-2">
-                  소속기관
-                </th>
-                <th class="text-xxs font-weight-bolder opacity-7 ps-2">
-                  연락처
-                </th>
-                <th class="text-xxs font-weight-bolder opacity-7 ps-2">
-                  이메일
-                </th>
-                <th class="text-center text-xxs font-weight-bolder opacity-7">
-                  상태
-                </th>
-                <th class="text-center text-xxs font-weight-bolder opacity-7">
-                  수정
-                </th>
-              </tr>
-            </thead>
-
-            <tbody>
-              <tr v-for="(item, index) in paginatedData" :key="item.id">
-                <td class="text-center">
-                  <input
-                    type="checkbox"
-                    v-model="item.selected"
-                    class="form-check-input"
-                  />
-                </td>
-                <td>{{ (currentPage - 1) * itemsPerPage + index + 1 }}</td>
-                <td>{{ item.userId }}</td>
-                <td>{{ item.userName }}</td>
-                <td>{{ item.organName }}</td>
-                <td>{{ item.phone }}</td>
-                <td>{{ item.email }}</td>
-                <td class="text-center">
-                  <span
-                    v-if="item.status === '승인요청'"
-                    class="badge badge-sm cursor-pointer"
-                    :class="statusBadge(item.status)"
-                    @click="openApprovalModal(item)"
-                  >
-                    {{ item.status }}
-                  </span>
-                  <span
-                    v-else
-                    class="badge badge-sm"
-                    :class="statusBadge(item.status)"
-                  >
-                    {{ item.status }}
-                  </span>
-                </td>
-                <td class="text-center">
-                  <a
-                    href="javascript:;"
-                    @click="handleEdit(item)"
-                    class="text-secondary"
-                  >
-                    <i class="fas fa-pencil-alt"></i>
-                  </a>
-                </td>
-              </tr>
-              <tr v-if="!listLoading && !listError && tableData.length === 0">
-                <td colspan="9" class="text-center text-muted py-4">담당자가 없습니다.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- ====== 페이징 ====== -->
-        <div
-          v-if="tableData.length > itemsPerPage"
-          class="d-flex justify-content-center py-3"
-        >
-          <nav>
-            <ul class="pagination pagination-sm mb-0">
-              <li class="page-item" :class="{ disabled: currentPage === 1 }">
-                <a class="page-link" href="javascript:;" @click="currentPage--">
-                  <i class="fa fa-angle-left"></i>
-                </a>
-              </li>
-              <li
-                v-for="page in totalPages"
-                :key="page"
-                class="page-item"
-                :class="{ active: currentPage === page }"
+        <template #header-actions>
+          <ArgonButton
+            size="sm"
+            variant="outline"
+            color="danger"
+            @click="deleteSelected"
+          >
+            선택삭제
+          </ArgonButton>
+        </template>
+        <template #header>
+          <th class="text-center text-xxs font-weight-bolder opacity-7">선택</th>
+          <th class="text-xxs font-weight-bolder opacity-7 ps-2">No.</th>
+          <th class="text-xxs font-weight-bolder opacity-7 ps-2">아이디</th>
+          <th class="text-xxs font-weight-bolder opacity-7 ps-2">담당자명</th>
+          <th class="text-xxs font-weight-bolder opacity-7 ps-2">소속기관</th>
+          <th class="text-xxs font-weight-bolder opacity-7 ps-2">연락처</th>
+          <th class="text-xxs font-weight-bolder opacity-7 ps-2">이메일</th>
+          <th class="text-center text-xxs font-weight-bolder opacity-7">상태</th>
+          <th class="text-center text-xxs font-weight-bolder opacity-7">수정</th>
+        </template>
+        <template #body>
+          <tr v-for="(item, index) in pagedRows" :key="item.id">
+            <td class="text-center">
+              <input
+                type="checkbox"
+                v-model="item.selected"
+                class="form-check-input"
+              />
+            </td>
+            <td>{{ rowDisplayNo(index) }}</td>
+            <td>{{ item.userId }}</td>
+            <td>{{ item.userName }}</td>
+            <td>{{ item.organName }}</td>
+            <td>{{ item.phone }}</td>
+            <td>{{ item.email }}</td>
+            <td class="text-center">
+              <span
+                v-if="item.status === '승인요청'"
+                class="badge badge-sm cursor-pointer"
+                :class="statusBadge(item.status)"
+                @click="openApprovalModal(item)"
               >
-                <a
-                  class="page-link"
-                  href="javascript:;"
-                  @click="currentPage = page"
-                >
-                  {{ page }}
-                </a>
-              </li>
-              <li
-                class="page-item"
-                :class="{ disabled: currentPage === totalPages }"
+                {{ item.status }}
+              </span>
+              <span
+                v-else
+                class="badge badge-sm"
+                :class="statusBadge(item.status)"
               >
-                <a class="page-link" href="javascript:;" @click="currentPage++">
-                  <i class="fa fa-angle-right"></i>
-                </a>
-              </li>
-            </ul>
-          </nav>
-        </div>
-      </div>
-    </div>
-      </div>
+                {{ item.status }}
+              </span>
+            </td>
+            <td class="text-center">
+              <a
+                href="javascript:;"
+                @click="handleEdit(item)"
+                class="text-secondary"
+              >
+                <i class="fas fa-pencil-alt"></i>
+              </a>
+            </td>
+          </tr>
+        </template>
+      </MainTable>
     </div>
 
     <!-- ====== 수정 모달 ====== -->
@@ -409,68 +344,46 @@ onMounted(() => loadManagers());
               <h6 class="font-weight-bolder text-dark">담당자 정보 수정</h6>
             </div>
             <div class="card-body p-4">
-              <div
-                class="d-flex flex-column flex-md-row align-items-center mb-2"
-              >
-                <label
-                  class="me-md-2 mb-1 mb-md-0"
-                  style="width: 120px; text-align: right"
-                  >아이디</label
-                >
-                <input :value="editUserId" readonly class="form-control flex-grow-1 bg-light" />
-              </div>
-
-              <div
-                class="d-flex flex-column flex-md-row align-items-center mb-2"
-              >
-                <label
-                  class="me-md-2 mb-1 mb-md-0"
-                  style="width: 120px; text-align: right"
-                  >담당자명</label
-                >
-                <input
-                  v-model="editUserName"
-                  class="form-control flex-grow-1"
+              <div class="mb-2">
+                <label class="form-label text-sm">아이디</label>
+                <ArgonInput
+                  :model-value="editUserId"
+                  size="sm"
+                  :readonly="true"
+                  class="bg-light"
                 />
               </div>
-
-              <div
-                class="d-flex flex-column flex-md-row align-items-center mb-2"
-              >
-                <label
-                  class="me-md-2 mb-1 mb-md-0"
-                  style="width: 120px; text-align: right"
-                  >연락처</label
-                >
-                <input v-model="editPhone" class="form-control flex-grow-1" />
+              <div class="mb-2">
+                <label class="form-label text-sm">담당자명</label>
+                <ArgonInput v-model="editUserName" size="sm" />
               </div>
-
-              <div
-                class="d-flex flex-column flex-md-row align-items-center mb-3"
-              >
-                <label
-                  class="me-md-2 mb-1 mb-md-0"
-                  style="width: 120px; text-align: right"
-                  >이메일</label
-                >
-                <input v-model="editEmail" class="form-control flex-grow-1" />
+              <div class="mb-2">
+                <label class="form-label text-sm">연락처</label>
+                <ArgonInput v-model="editPhone" size="sm" />
               </div>
-
+              <div class="mb-3">
+                <label class="form-label text-sm">이메일</label>
+                <ArgonInput v-model="editEmail" size="sm" />
+              </div>
               <div class="d-flex justify-content-center gap-2 flex-wrap">
-                <button
-                  class="btn btn-sm bg-gradient-success"
+                <ArgonButton
+                  size="sm"
+                  color="success"
+                  variant="gradient"
                   :disabled="editSaving"
                   @click="confirmEdit"
                 >
                   {{ editSaving ? "저장 중..." : "저장" }}
-                </button>
-                <button
-                  class="btn btn-sm bg-gradient-secondary"
+                </ArgonButton>
+                <ArgonButton
+                  size="sm"
+                  color="secondary"
+                  variant="gradient"
                   :disabled="editSaving"
                   @click="closeEditModal"
                 >
                   취소
-                </button>
+                </ArgonButton>
               </div>
             </div>
           </div>
@@ -496,27 +409,33 @@ onMounted(() => loadManagers());
                   {{ approvalTarget?.userName }} ({{ approvalTarget?.userId }}) 담당자에 대해 승인 또는 반려를 선택하세요.
                 </p>
                 <div class="d-flex justify-content-center gap-2 flex-wrap">
-                  <button
-                    class="btn btn-sm bg-gradient-success"
+                  <ArgonButton
+                    size="sm"
+                    color="success"
+                    variant="gradient"
                     :disabled="approvalSaving"
                     @click="doApprove"
                   >
                     승인
-                  </button>
-                  <button
-                    class="btn btn-sm bg-gradient-danger"
+                  </ArgonButton>
+                  <ArgonButton
+                    size="sm"
+                    color="danger"
+                    variant="gradient"
                     :disabled="approvalSaving"
                     @click="showRejectForm"
                   >
                     반려
-                  </button>
-                  <button
-                    class="btn btn-sm bg-gradient-secondary"
+                  </ArgonButton>
+                  <ArgonButton
+                    size="sm"
+                    color="secondary"
+                    variant="gradient"
                     :disabled="approvalSaving"
                     @click="closeApprovalModal"
                   >
                     취소
-                  </button>
+                  </ArgonButton>
                 </div>
               </template>
               <template v-else>
@@ -528,20 +447,24 @@ onMounted(() => loadManagers());
                   placeholder="반려 사유를 입력하세요"
                 />
                 <div class="d-flex justify-content-center gap-2 flex-wrap">
-                  <button
-                    class="btn btn-sm bg-gradient-danger"
+                  <ArgonButton
+                    size="sm"
+                    color="danger"
+                    variant="gradient"
                     :disabled="approvalSaving"
                     @click="doReject"
                   >
                     {{ approvalSaving ? "처리 중..." : "반려 제출" }}
-                  </button>
-                  <button
-                    class="btn btn-sm bg-gradient-secondary"
+                  </ArgonButton>
+                  <ArgonButton
+                    size="sm"
+                    color="secondary"
+                    variant="gradient"
                     :disabled="approvalSaving"
                     @click="approvalStep = 'choice'"
                   >
                     뒤로
-                  </button>
+                  </ArgonButton>
                 </div>
               </template>
             </div>

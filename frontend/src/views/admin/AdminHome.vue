@@ -4,6 +4,8 @@ import { computed, ref, onMounted } from "vue";
 import { usePagination } from "@/composables/usePagination";
 import SearchNavbar from "@/views/components/SearchNavbar.vue";
 import MainTable from "@/views/components/MainTable.vue";
+import ArgonButton from "@/components/ArgonButton.vue";
+import ArgonInput from "@/components/ArgonInput.vue";
 
 // ✅ 체크박스 선택 상태(선택된 기관 no 목록)
 const selectedNos = ref(new Set());
@@ -139,7 +141,7 @@ const filteredRows = computed(() => {
 });
 
 // 페이징: 공통 composable 사용 (페이지당 10건, 순번은 전체 건수 기준 내림차순)
-const { pageSize, totalItems: totalRows, pagedItems: pagedRows, rowDisplayNo } =
+const { page, pageSize, totalItems: totalRows, pagedItems: pagedRows, rowDisplayNo } =
   usePagination(() => filteredRows.value, 10);
 
 // ------- 기관 주소 입력(우편번호 API) 공통 유틸 -------
@@ -382,10 +384,10 @@ const submitCreate = async () => {
     <div class="row">
       <SearchNavbar title="검색" @search="onSearch" @reset="onReset">
         <label class="form-label text-sm">기관명</label>
-        <input
+        <ArgonInput
           v-model="filters.orgName"
           type="text"
-          class="form-control form-control-sm"
+          size="sm"
           placeholder="예) 대구 남구"
         />
       </SearchNavbar>
@@ -457,9 +459,12 @@ const submitCreate = async () => {
             </td>
 
             <td class="text-center">
-              <button
+              <ArgonButton
                 type="button"
-                class="btn btn-sm btn-outline-secondary mb-0 p-1"
+                size="sm"
+                variant="outline"
+                color="secondary"
+                class="mb-0 p-1"
                 title="수정"
                 @click="openEditModal(row)"
               >
@@ -481,7 +486,7 @@ const submitCreate = async () => {
                     d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
                   />
                 </svg>
-              </button>
+              </ArgonButton>
             </td>
           </tr>
 
@@ -493,12 +498,9 @@ const submitCreate = async () => {
 
           <tr v-if="!loading && !loadError">
             <td colspan="12" class="text-end pt-3">
-              <button
-                class="btn btn-sm btn-primary mb-0"
-                @click="openCreateModal"
-              >
+              <ArgonButton size="sm" color="primary" @click="openCreateModal">
                 기관 등록하기
-              </button>
+              </ArgonButton>
             </td>
           </tr>
         </template>
@@ -526,62 +528,59 @@ const submitCreate = async () => {
           </div>
           <div class="modal-body">
             <div class="mb-3">
-              <label class="form-label"
-                >사업자번호 <span class="text-danger">*</span></label
-              >
-              <input
+              <label class="form-label">사업자번호 <span class="text-danger">*</span></label>
+              <ArgonInput
                 v-model="createForm.organ_no"
                 type="text"
-                class="form-control form-control-sm"
+                size="sm"
                 placeholder="000-00-00000 (또는 10자리 숫자)"
                 maxlength="12"
               />
               <small class="text-muted">하이픈 없이 10자리로 저장됩니다.</small>
             </div>
             <div class="mb-3">
-              <label class="form-label"
-                >기관명 <span class="text-danger">*</span></label
-              >
-              <input
+              <label class="form-label">기관명 <span class="text-danger">*</span></label>
+              <ArgonInput
                 v-model="createForm.organ_name"
                 type="text"
-                class="form-control form-control-sm"
+                size="sm"
                 placeholder="기관명 입력"
               />
             </div>
             <div class="mb-3">
-              <label class="form-label"
-                >주소 <span class="text-danger">*</span></label
-              >
+              <label class="form-label">주소 <span class="text-danger">*</span></label>
               <div class="d-flex gap-2 mb-2">
-                <input
+                <ArgonInput
                   v-model="createZipCode"
                   type="text"
-                  class="form-control form-control-sm"
+                  size="sm"
                   placeholder="우편번호"
                   readonly
                 />
-                <button
+                <ArgonButton
                   type="button"
-                  class="btn btn-outline-primary btn-sm"
+                  size="sm"
+                  variant="outline"
+                  color="primary"
                   @click="openPostcodeForCreate"
                 >
                   주소 검색
-                </button>
+                </ArgonButton>
               </div>
-              <input
+              <ArgonInput
                 v-model="createBaseAddress"
                 type="text"
-                class="form-control form-control-sm mb-2"
+                size="sm"
+                class="mb-2"
                 placeholder="기본 주소"
                 readonly
               />
-              <input
+              <ArgonInput
                 v-model="createDetailAddress"
                 type="text"
-                class="form-control form-control-sm"
+                size="sm"
                 placeholder="상세 주소를 입력해주세요"
-                @input="
+                @update:model-value="
                   createForm.organ_address = makeFullAddress(
                     createZipCode,
                     createBaseAddress,
@@ -592,31 +591,29 @@ const submitCreate = async () => {
             </div>
             <div class="mb-3">
               <label class="form-label">연락처</label>
-              <input
+              <ArgonInput
                 v-model="createForm.organ_tel"
                 type="text"
-                class="form-control form-control-sm"
+                size="sm"
                 placeholder="하이픈 제외 11자"
                 maxlength="11"
               />
             </div>
             <div class="mb-3">
               <label class="form-label">이메일</label>
-              <input
+              <ArgonInput
                 v-model="createForm.organ_mail"
                 type="text"
-                class="form-control form-control-sm"
+                size="sm"
                 placeholder="이메일"
               />
             </div>
             <div class="mb-3">
-              <label class="form-label"
-                >시작일 <span class="text-danger">*</span></label
-              >
-              <input
+              <label class="form-label">시작일 <span class="text-danger">*</span></label>
+              <ArgonInput
                 v-model="createForm.start_time"
                 type="date"
-                class="form-control form-control-sm"
+                size="sm"
               />
             </div>
             <div class="mb-3">
@@ -632,22 +629,25 @@ const submitCreate = async () => {
             </div>
           </div>
           <div class="modal-footer">
-            <button
+            <ArgonButton
               type="button"
-              class="btn btn-outline-secondary btn-sm"
+              size="sm"
+              variant="outline"
+              color="secondary"
               :disabled="createSubmitting"
               @click="closeCreateModal"
             >
               취소
-            </button>
-            <button
+            </ArgonButton>
+            <ArgonButton
               type="button"
-              class="btn btn-primary btn-sm"
+              size="sm"
+              color="primary"
               :disabled="createSubmitting"
               @click="submitCreate"
             >
               {{ createSubmitting ? "등록 중..." : "등록" }}
-            </button>
+            </ArgonButton>
           </div>
         </div>
       </div>
@@ -675,57 +675,57 @@ const submitCreate = async () => {
           <div class="modal-body">
             <div class="mb-3">
               <label class="form-label">기관번호(사업자번호)</label>
-              <input
-                :value="formatOrganNo(editForm.organ_no)"
+              <ArgonInput
+                :model-value="formatOrganNo(editForm.organ_no)"
                 type="text"
-                class="form-control form-control-sm bg-light"
+                size="sm"
                 readonly
+                class="bg-light"
               />
             </div>
             <div class="mb-3">
-              <label class="form-label"
-                >기관명 <span class="text-danger">*</span></label
-              >
-              <input
+              <label class="form-label">기관명 <span class="text-danger">*</span></label>
+              <ArgonInput
                 v-model="editForm.organ_name"
                 type="text"
-                class="form-control form-control-sm"
+                size="sm"
                 placeholder="기관명 입력"
               />
             </div>
             <div class="mb-3">
-              <label class="form-label"
-                >주소 <span class="text-danger">*</span></label
-              >
+              <label class="form-label">주소 <span class="text-danger">*</span></label>
               <div class="d-flex gap-2 mb-2">
-                <input
+                <ArgonInput
                   v-model="editZipCode"
                   type="text"
-                  class="form-control form-control-sm"
+                  size="sm"
                   placeholder="우편번호"
                   readonly
                 />
-                <button
+                <ArgonButton
                   type="button"
-                  class="btn btn-outline-primary btn-sm"
+                  size="sm"
+                  variant="outline"
+                  color="primary"
                   @click="openPostcodeForEdit"
                 >
                   주소 검색
-                </button>
+                </ArgonButton>
               </div>
-              <input
+              <ArgonInput
                 v-model="editBaseAddress"
                 type="text"
-                class="form-control form-control-sm mb-2"
+                size="sm"
+                class="mb-2"
                 placeholder="기본 주소"
                 readonly
               />
-              <input
+              <ArgonInput
                 v-model="editDetailAddress"
                 type="text"
-                class="form-control form-control-sm"
+                size="sm"
                 placeholder="상세 주소를 입력해주세요"
-                @input="
+                @update:model-value="
                   editForm.organ_address = makeFullAddress(
                     editZipCode,
                     editBaseAddress,
@@ -736,39 +736,37 @@ const submitCreate = async () => {
             </div>
             <div class="mb-3">
               <label class="form-label">연락처</label>
-              <input
+              <ArgonInput
                 v-model="editForm.organ_tel"
                 type="text"
-                class="form-control form-control-sm"
+                size="sm"
                 placeholder="하이픈 제외 11자"
                 maxlength="11"
               />
             </div>
             <div class="mb-3">
               <label class="form-label">이메일</label>
-              <input
+              <ArgonInput
                 v-model="editForm.organ_mail"
                 type="text"
-                class="form-control form-control-sm"
+                size="sm"
                 placeholder="이메일"
               />
             </div>
             <div class="mb-3">
-              <label class="form-label"
-                >시작일 <span class="text-danger">*</span></label
-              >
-              <input
+              <label class="form-label">시작일 <span class="text-danger">*</span></label>
+              <ArgonInput
                 v-model="editForm.start_time"
                 type="date"
-                class="form-control form-control-sm"
+                size="sm"
               />
             </div>
             <div class="mb-3">
               <label class="form-label">종료일</label>
-              <input
+              <ArgonInput
                 v-model="editForm.end_time"
                 type="date"
-                class="form-control form-control-sm"
+                size="sm"
               />
             </div>
             <div class="mb-3">
@@ -784,22 +782,25 @@ const submitCreate = async () => {
             </div>
           </div>
           <div class="modal-footer">
-            <button
+            <ArgonButton
               type="button"
-              class="btn btn-outline-secondary btn-sm"
+              size="sm"
+              variant="outline"
+              color="secondary"
               :disabled="editSubmitting"
               @click="closeEditModal"
             >
               취소
-            </button>
-            <button
+            </ArgonButton>
+            <ArgonButton
               type="button"
-              class="btn btn-primary btn-sm"
+              size="sm"
+              color="primary"
               :disabled="editSubmitting"
               @click="submitEdit"
             >
               {{ editSubmitting ? "저장 중..." : "저장" }}
-            </button>
+            </ArgonButton>
           </div>
         </div>
       </div>

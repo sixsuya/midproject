@@ -1,4 +1,6 @@
 <script setup>
+import ArgonButton from "@/components/ArgonButton.vue";
+
 defineProps({
   title: { type: String, default: "상세 검색" },
   subtitle: { type: String, default: "" },
@@ -25,14 +27,16 @@ const emit = defineEmits(["search", "reset"]);
 
         <!-- 검색 / 초기화 버튼 -->
         <div class="mt-4 d-grid gap-2">
-          <button type="submit" class="btn btn-success mb-0">검색</button>
-          <button
+          <ArgonButton type="submit" color="success" class="mb-0">검색</ArgonButton>
+          <ArgonButton
             type="button"
-            class="btn btn-outline-secondary mb-0"
+            variant="outline"
+            color="secondary"
+            class="mb-0"
             @click="emit('reset')"
           >
             초기화
-          </button>
+          </ArgonButton>
         </div>
       </form>
     </div>

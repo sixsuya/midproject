@@ -2,9 +2,6 @@ import { createRouter, createWebHistory } from "vue-router";
 import MainLayout from "@/layouts/MainLayout.vue";
 import Signup from "../views/sign/Signup.vue";
 import Signin from "../views/sign/Signin.vue";
-import FindId from "../views/sign/FindId.vue";
-import FindPassword from "../views/sign/FindPassword.vue";
-// import ProxyTest from "../views/ProxyTest.vue";
 import { useAuthStore } from "@/store/auth";
 import kjh from "./kjh";
 import psw from "./psw";
@@ -95,18 +92,13 @@ const routesList = [
   {
     path: "/find-id",
     name: "FindId",
-    component: FindId,
+    redirect: () => ({ path: "/signin", query: { open: "find-id" } }),
   },
   {
     path: "/find-password",
     name: "FindPassword",
-    component: FindPassword,
+    redirect: () => ({ path: "/signin", query: { open: "find-password" } }),
   },
-  // {
-  //   path: "/proxy-test",
-  //   name: "ProxyTest",
-  //   component: ProxyTest,
-  // },
 ];
 
 const router = createRouter({
