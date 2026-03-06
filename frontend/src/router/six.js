@@ -1,5 +1,5 @@
 import OrganManager from "@/views/OrganManager.vue";
-import admin from "@/layouts/AdminLayout.vue";
+import AdminLayout from "@/layouts/AdminLayout.vue";
 
 export default [
   // {
@@ -28,7 +28,7 @@ export default [
   // 2) 시스템관리자 영역
   {
     path: "/admin",
-    component: admin,
+    component: AdminLayout,
     children: [
       {
         path: "",
@@ -61,7 +61,7 @@ export default [
   // 3) 담당자 관리 (헤더 유지를 위해 admin 레이아웃 사용)
   {
     path: "/managermanage",
-    component: admin,
+    component: AdminLayout,
     children: [
       {
         path: "",
@@ -73,7 +73,7 @@ export default [
   // 4) 지원자 관리 (a0_20, a0_21)
   {
     path: "/applicantmanage",
-    component: admin,
+    component: AdminLayout,
     children: [
       {
         path: "",
@@ -85,7 +85,7 @@ export default [
   // 5) 관리자 관리 (a0_40, a0_41)
   {
     path: "/organmanagermanage",
-    component: admin,
+    component: AdminLayout,
     children: [
       {
         path: "",
