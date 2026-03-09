@@ -225,7 +225,7 @@ const viewApply = (row) => {
 const goSupportHistory = (row) => {
   if (!row.sup_code) return;
   router.push({
-    name: "pswSupportHistory",
+    name: "SupportHistory",
     params: { supCode: row.sup_code },
   });
 };

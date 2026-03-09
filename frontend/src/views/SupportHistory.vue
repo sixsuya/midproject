@@ -10,7 +10,7 @@
 import { ref, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import axios from "axios";
-import HeaderNavbar from "@/components/HeaderNavbar.vue";
+
 import ArgonButton from "@/components/ArgonButton.vue";
 
 const route = useRoute();
@@ -127,7 +127,6 @@ onMounted(() => {
 
 <template>
   <div>
-    <HeaderNavbar />
     <div class="container-fluid py-4">
       <h5 class="mb-3">지원대상 이력</h5>
 
