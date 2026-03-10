@@ -61,7 +61,7 @@ const svc = {
     } = payload;
 
     // 로그인 구현시 실제 작성자 번호로 교체
-    const writerNo = writer || "MEM202602230001";
+    const writerNo = writer;
 
     try {
       const txResult = await query.runInTransactionWithContext(
@@ -341,26 +341,18 @@ const svc = {
                 const placeholders = existingViewIds.map(() => "?").join(",");
 
                 await conn.query(
-                  `
-                  DELETE FROM survey_view
-                  WHERE q_code = ?
-                    AND q_view_code NOT IN (${placeholders})
-                  `,
+                  sqlList.psw_surveyViewDeleteNotInBase + `(${placeholders})`,
                   [qCode, ...existingViewIds],
                 );
               } else {
                 // 보기가 하나도 없으면 전체 삭제
-                await conn.query(`DELETE FROM survey_view WHERE q_code = ?`, [
-                  qCode,
-                ]);
+                await conn.query(sqlList.psw_surveyViewDeleteByQCode, [qCode]);
               }
             }
 
             //  CHECK → 다른 타입으로 변경 시
             if (!isCheckType && qCode) {
-              await conn.query(`DELETE FROM survey_view WHERE q_code = ?`, [
-                qCode,
-              ]);
+              await conn.query(sqlList.psw_surveyViewDeleteByQCode, [qCode]);
             }
           }
           // 트랜잭션 안에서 사용한 주요 값(sver_code)을 반환
