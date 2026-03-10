@@ -957,6 +957,36 @@ async function onOpenSuppleHistory() {
   }
 }
 
+// 탭 전환 시 데이터 로드 및 노출 제어 관련 computed / watch
+// 기관담당자용: 신청접수(접수/반려) 및 탭 노출 제어
+const hasCounsel = computed(() => counselList.value.length > 0);
+const reqYn = computed(() => support.value?.req_yn || "");
+const rankApproved = computed(() => rankData.value?.s_rank_res === "e0_10");
+
+// 상태별 탭 노출 규칙 (sup_code 기준 req_yn / 우선순위 판정)
+// - req_yn = e0_00: 지원신청서 + 신청접수, 나머지 비노출
+// - req_yn = e0_10: 지원신청서 + 우선순위 (우선순위 미승인)
+// - req_yn = e0_10 && 우선순위 s_rank_res = e0_10: 지원신청서 + 우선순위 + 지원계획
+const showReceiptTab = computed(
+  () => isManager.value && hasCounsel.value && reqYn.value === "e0_00",
+);
+const showRankTab = computed(
+  () => !isApplicant.value && reqYn.value === "e0_10",
+);
+const showPlanTab = computed(
+  () => reqYn.value === "e0_10" && rankApproved.value,
+);
+const showResultTab = computed(
+  () =>
+    reqYn.value === "e0_10" &&
+    rankApproved.value &&
+    // 결정(승인/보완/반려) 처리 직후 재조회 과정에서 resultData가 잠깐 0이 되더라도
+    // 결과 탭이 사라지며 "빈 화면"처럼 보이지 않게 현재 탭이면 유지한다.
+    (leftTab.value === "result" ||
+      selectedPlanCode.value ||
+      resultData.value.length > 0),
+);
+
 // 탭 전환 시 데이터 로드
 watch(leftTab, (tab) => {
   if (tab === "rank" && !rankData.value) loadRankTab();
@@ -973,6 +1003,13 @@ watch(leftTab, (tab) => {
         resultLoading.value = false;
       });
     }
+  }
+});
+
+// 우선순위 탭 노출이 불가능해지면(예: req_yn !== e0_10) 우선순위 탭에서 자동 이탈
+watch(showRankTab, (visible) => {
+  if (!visible && leftTab.value === "rank") {
+    leftTab.value = "application";
   }
 });
 
@@ -1285,35 +1322,6 @@ async function saveCounsel(payload) {
   }
 }
 
-// 기관담당자용: 신청접수(접수/반려) 및 탭 노출 제어
-const hasCounsel = computed(() => counselList.value.length > 0);
-const reqYn = computed(() => support.value?.req_yn || "");
-const rankApproved = computed(() => rankData.value?.s_rank_res === "e0_10");
-
-// 상태별 탭 노출 규칙 (sup_code 기준 req_yn / 우선순위 판정)
-// - req_yn = e0_00: 지원신청서 + 신청접수, 나머지 비노출
-// - req_yn = e0_10: 지원신청서 + 우선순위 (우선순위 미승인)
-// - req_yn = e0_10 && 우선순위 s_rank_res = e0_10: 지원신청서 + 우선순위 + 지원계획
-const showReceiptTab = computed(
-  () => isManager.value && hasCounsel.value && reqYn.value === "e0_00",
-);
-const showRankTab = computed(
-  () => !isApplicant.value && reqYn.value === "e0_10",
-);
-const showPlanTab = computed(
-  () => reqYn.value === "e0_10" && rankApproved.value,
-);
-const showResultTab = computed(
-  () =>
-    reqYn.value === "e0_10" &&
-    rankApproved.value &&
-    // 결정(승인/보완/반려) 처리 직후 재조회 과정에서 resultData가 잠깐 0이 되더라도
-    // 결과 탭이 사라지며 "빈 화면"처럼 보이지 않게 현재 탭이면 유지한다.
-    (leftTab.value === "result" ||
-      selectedPlanCode.value ||
-      resultData.value.length > 0),
-);
-
 async function refreshResultTabAfterDecision() {
   if (leftTab.value !== "result") return;
   await loadResultTab();
@@ -1483,7 +1491,7 @@ function onReceiptReject() {
                 @reject="onReceiptReject"
               />
               <!-- 우선순위: 탭 선택 시 RankDetail 직접 표시 -->
-              <div v-if="leftTab === 'rank'">
+              <div v-if="leftTab === 'rank' && showRankTab">
                 <div
                   class="counsel-section-header d-flex align-items-center justify-content-between mb-3"
                 >
