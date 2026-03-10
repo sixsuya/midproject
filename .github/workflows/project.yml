@@ -37,7 +37,7 @@ jobs:
         run: |
           ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
           export PATH=$PATH:/usr/local/bin
-          cd ~/project_node
+          cd ~/midproject
           git pull origin main
           pm2 restart app || pm2 start backend/app.js --name "app"
           pm2 save
