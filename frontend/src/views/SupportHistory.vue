@@ -62,6 +62,27 @@ function disabilityLabel(code) {
   return code || "";
 }
 
+function priorityLabel(val) {
+  if (!val) return "";
+  // 현재 API는 priority_name으로 "계획/중점/긴급"을 내려줌
+  if (val === "긴급" || val === "중점" || val === "계획") return val;
+  // d0_20=계획, d0_30=중점, d0_40=긴급
+  if (val === "d0_40") return "긴급";
+  if (val === "d0_30") return "중점";
+  if (val === "d0_20") return "계획";
+  return "";
+}
+
+function statusLabel(code) {
+  if (!code) return "";
+  // e0_00=검토, e0_10=승인, e0_80=보완, e0_99=반려
+  if (code === "e0_00") return "검토";
+  if (code === "e0_10") return "승인";
+  if (code === "e0_80") return "보완";
+  if (code === "e0_99") return "반려";
+  return code;
+}
+
 async function loadHistory() {
   if (!supCode.value) {
     error.value = "지원번호(sup_code)가 없습니다.";
@@ -73,14 +94,12 @@ async function loadHistory() {
 
   try {
     const { data } = await axios.get(
-      `/api/viewAll/support-history/${encodeURIComponent(supCode.value)}`
+      `/api/viewAll/support-history/${encodeURIComponent(supCode.value)}`,
     );
 
     target.value = data.target || null;
 
-    const rawSupports = Array.isArray(data.supports)
-      ? data.supports
-      : [];
+    const rawSupports = Array.isArray(data.supports) ? data.supports : [];
 
     supports.value = rawSupports.map((s) => ({
       ...s,
@@ -189,6 +208,17 @@ onMounted(() => {
               <span class="fw-semibold">
                 {{ formatDate(block.sup_day) }}
               </span>
+              <span
+                v-if="block.priority_name"
+                class="badge"
+                :class="{
+                  'bg-info': block.priority_name === '계획',
+                  'bg-warning': block.priority_name === '중점',
+                  'bg-danger': block.priority_name === '긴급',
+                }"
+              >
+                {{ priorityLabel(block.priority_name) }}
+              </span>
             </div>
             <div class="d-flex align-items-center gap-2">
               <select
@@ -238,7 +268,12 @@ onMounted(() => {
                     </div>
                   </div>
                   <div class="text-muted small mb-1">
-                    작성자: {{ csl.csl_name || "-" }}
+                    작성자:
+                    {{
+                      csl.csl_writer_nm ||
+                      csl.csl_name ||
+                      "-"
+                    }}
                   </div>
                   <div class="psw-entry-content">
                     {{ contentPreview(csl.csl_content) }}
@@ -274,7 +309,7 @@ onMounted(() => {
                   <div class="text-muted small mb-1">
                     상태:
                     <span class="badge bg-light text-dark ms-1">
-                      {{ plan.plan_tf }}
+                      {{ statusLabel(plan.plan_tf) }}
                     </span>
                   </div>
                   <div class="psw-entry-content">
@@ -311,7 +346,7 @@ onMounted(() => {
                   <div class="text-muted small mb-1">
                     계획번호: {{ result.plan_code }}
                     <span class="badge bg-light text-dark ms-2">
-                      {{ result.result_tf }}
+                      {{ statusLabel(result.result_tf) }}
                     </span>
                   </div>
                   <div class="psw-entry-content">

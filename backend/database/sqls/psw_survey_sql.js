@@ -205,6 +205,12 @@ const qry = {
     ORDER BY q_view_code DESC
     LIMIT 1;
   `,
+
+  psw_surveyViewDeleteNotInBase: `
+    DELETE FROM survey_view
+    WHERE q_code = ?
+    AND q_view_code NOT IN
+  `,
 };
 // s.sv_name LIKE CONCAT('%', ?, '%')
 // sqList.js로 넘김
