@@ -147,7 +147,7 @@ onMounted(() => {
 <template>
   <div>
     <div class="container-fluid py-4">
-      <h5 class="mb-3">지원대상 이력</h5>
+      <h5 class="mb-3">지원대상 정보</h5>
 
       <!-- 상단: 지원대상 기본 정보 -->
       <div class="card shadow-sm mb-3">
