@@ -204,12 +204,27 @@ function closeAlertModal() {
   alertModal.value.show = false;
 }
 
+/** 한글 파일명을 UTF-8 기준 Base64로 인코딩 (서버에서 UTF-8로 복원용) */
+function encodeFileNameUtf8(fileName) {
+  try {
+    return btoa(
+      new TextEncoder().encode(fileName).reduce(
+        (data, byte) => data + String.fromCharCode(byte),
+        "",
+      ),
+    );
+  } catch {
+    return btoa(unescape(encodeURIComponent(fileName || "")));
+  }
+}
+
 async function uploadFilesToServer(files, filePath, categoryPk, uploadMem) {
   for (const f of files) {
     const formData = new FormData();
     formData.append("file", f);
     formData.append("file_path", filePath);
     formData.append("file_category", categoryPk);
+    formData.append("file_name_utf8", encodeFileNameUtf8(f.name || ""));
     if (uploadMem) formData.append("upload_mem", uploadMem);
     try {
       await fetch("/api/upload/file-content", {
@@ -487,6 +502,25 @@ async function onPlanEditComplete(payload) {
     showAlert("error", "알림", res.retMsg ?? "수정 중 오류가 발생했습니다.");
   }
 }
+
+/** 지원계획 연장: 모달에서 선택한 종료일로 계획의 end_time만 갱신 */
+async function onPlanExtend(planCode, newEndDate) {
+  const plan = (planData.value ?? []).find((p) => p.plan_code === planCode);
+  if (!plan) return;
+  const res = await supportStore.updatePlan(planCode, {
+    plan_goal: plan.plan_goal ?? "",
+    plan_content: plan.plan_content ?? "",
+    start_date: plan.start_time ?? null,
+    end_date: newEndDate ?? null,
+  });
+  if (res?.retCode === "Success" || res === null) {
+    await loadPlanTab();
+    showAlert("success", "알림", "종료일이 연장되었습니다.");
+  } else if (res != null) {
+    showAlert("error", "알림", res.retMsg ?? "연장 처리에 실패했습니다.");
+  }
+}
+
 // ─── 임시저장 (지원계획 j0_20 - 상세 편집용) ───────────────────────────────
 let _planTempPayloadOverride = null;
 
@@ -1750,6 +1784,11 @@ function onReceiptReject() {
                   :has_supple="
                     !!(plan.plan_tf === 'e0_80' || plan.prev_plan_code)
                   "
+                  :result-count-for-plan="
+                    selectedPlanCode === plan.plan_code
+                      ? resultData.length
+                      : undefined
+                  "
                   @result="loadResultForPlan"
                   @open-supple-history="openPlanSuppleHistory(plan.plan_code)"
                   @approve="
@@ -1836,6 +1875,7 @@ function onReceiptReject() {
                     (planCode) => openPlanCancelModal('edit', planCode)
                   "
                   @cancel-done="clearCancelRequestPlan"
+                  @extend="onPlanExtend"
                   @end="
                     (pc) => supportStore.endPlan(pc).then(() => loadPlanTab())
                   "

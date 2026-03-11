@@ -40,6 +40,8 @@ const props = defineProps({
   plan_date: { type: String, default: "" },
   cancelRequest: { type: String, default: "" },
   has_supple: { type: Boolean, default: false },
+  /** 해당 계획의 지원결과 건수. 권한별 버튼 노출/라벨용(미전달 시 applicant는 비노출, 담당/관리자는 '결과조회') */
+  resultCountForPlan: { type: Number, default: undefined },
 });
 const emit = defineEmits([
   "history",
@@ -61,6 +63,11 @@ const emit = defineEmits([
   "extend",
   "end",
 ]);
+
+/** 연장 모달 표시 여부 */
+const showExtendModal = ref(false);
+/** 연장 모달에서 선택한 종료일 (YYYY-MM-DD) */
+const extendEndDateLocal = ref("");
 
 /** 수정 모드 여부. true면 제목·내용·지원기간·첨부 편집 가능 */
 const isEditing = ref(false);
@@ -85,6 +92,21 @@ const isViewMode = () => !isEditing.value;
 const isInputMode = () => isEditing.value && !(contentLocal.value || "").trim();
 /** 편집 모드: 수정 중이고 내용 있음 → 수정완료·임시저장·취소 버튼 표시 */
 const isEditMode = () => isEditing.value && (contentLocal.value || "").trim();
+
+/** 결과 버튼 노출: applicant는 결과 1건 이상일 때만, 담당/관리자는 승인(e0_10)이면 항상 */
+const showResultButton = computed(
+  () =>
+    props.plan_result === "e0_10" &&
+    (isApplicant.value
+      ? (props.resultCountForPlan != null && props.resultCountForPlan >= 1)
+      : true),
+);
+/** 결과 버튼 라벨: 결과가 1건 이상이면 '결과조회', 0건이면 '결과추가' (담당/관리자만 0건 시 결과추가) */
+const resultButtonLabel = computed(() =>
+  (props.resultCountForPlan != null && props.resultCountForPlan >= 1)
+    ? "결과조회"
+    : "결과추가",
+);
 
 // ========== 날짜·편집·완료 함수 ==========
 /** API에서 오는 날짜(시간) 문자열을 input[type=date]용 YYYY-MM-DD로 자르기 */
@@ -152,8 +174,8 @@ function displayEndTime() {
 }
 
 /**
- * 연장 버튼 표시 여부: 승인(e0_10) 상태이고, 오늘이 종료일 기준 전후 30일 이내일 때만 활성화.
- * (종료일 - 30일 <= 오늘 <= 종료일 + 30일)
+ * 연장 버튼 표시 여부: 승인(e0_10) 상태이고, 종료일자와의 차이가 ±30일 이내일 때만 출력.
+ * (종료일 - 30일 <= 오늘 <= 종료일 + 30일). 그 외(종료일 없음, 범위 밖)에는 노출 금지.
  */
 function canShowExtend() {
   if (props.plan_result !== "e0_10" || !props.end_time) return false;
@@ -170,15 +192,16 @@ function canShowExtend() {
 }
 
 /**
- * 종료 버튼 표시 여부: 승인(e0_10) 상태이고, 종료일이 아직 지나지 않은 경우(오늘 <= 종료일)에만 표시.
+ * 종료 버튼 표시 여부: 승인(e0_10) 상태이고, 종료일이 있고 아직 지나지 않은 경우(오늘 <= 종료일)에만 표시.
+ * 종료일을 넘겼거나 종료일이 없으면 노출 금지.
  */
 function canShowEnd() {
   if (props.plan_result !== "e0_10") return false;
-  if (!props.end_time) return true; // 종료일 미지정 시에도 종료 버튼 노출
+  if (!props.end_time) return false;
   const endStr = toDateOnly(props.end_time);
-  if (!endStr) return true;
+  if (!endStr) return false;
   const end = new Date(endStr);
-  if (Number.isNaN(end.getTime())) return true;
+  if (Number.isNaN(end.getTime())) return false;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   end.setHours(0, 0, 0, 0);
@@ -334,6 +357,22 @@ watch(
   },
 );
 
+/** 연장 모달 열기: 현재 종료일 또는 오늘을 기본값으로 */
+function openExtendModal() {
+  extendEndDateLocal.value =
+    toDateOnly(props.end_time) || new Date().toISOString().slice(0, 10);
+  showExtendModal.value = true;
+}
+function closeExtendModal() {
+  showExtendModal.value = false;
+}
+/** 연장 완료: 선택한 종료일로 부모에 전달 후 모달 닫기 */
+function confirmExtend() {
+  if (!extendEndDateLocal.value?.trim()) return;
+  emit("extend", props.plan_code, extendEndDateLocal.value.trim());
+  closeExtendModal();
+}
+
 // 부모에서 ref를 통해 첨부파일 목록 재조회가 필요할 때 사용
 defineExpose({ reloadFiles: loadPlanFiles });
 </script>
@@ -351,7 +390,13 @@ defineExpose({ reloadFiles: loadPlanFiles });
       </p>
       <!-- 수정/보완하기로 편집 모드일 때만 노출 -->
       <div v-if="isEditing" class="d-flex justify-content-end gap-2 mb-3">
-        <ArgonButton type="button" size="sm" variant="outline" color="secondary" @click="onLoadTemp">
+        <ArgonButton
+          type="button"
+          size="sm"
+          variant="outline"
+          color="secondary"
+          @click="onLoadTemp"
+        >
           임시저장 불러오기
         </ArgonButton>
         <ArgonButton
@@ -437,7 +482,9 @@ defineExpose({ reloadFiles: loadPlanFiles });
               class="text-start w-100 bg-white mb-1"
               @click="openEditFileDialog"
             >
-              <span v-if="editFiles.length">{{ editFiles.map((f) => f.name).join(", ") }}</span>
+              <span v-if="editFiles.length">{{
+                editFiles.map((f) => f.name).join(", ")
+              }}</span>
               <span v-else class="text-muted">파일을 선택하세요</span>
             </ArgonButton>
             <div v-if="filesForPlan.length" class="mt-1 d-flex flex-wrap gap-1">
@@ -490,9 +537,19 @@ defineExpose({ reloadFiles: loadPlanFiles });
             <span class="text-body">{{ displayEndTime() }}</span>
           </template>
           <div v-else class="d-flex align-items-center flex-wrap gap-2">
-            <ArgonInput v-model="startDateLocal" type="date" size="sm" style="max-width: 11rem" />
+            <ArgonInput
+              v-model="startDateLocal"
+              type="date"
+              size="sm"
+              style="max-width: 11rem"
+            />
             <span class="text-body">~</span>
-            <ArgonInput v-model="endDateLocal" type="date" size="sm" style="max-width: 11rem" />
+            <ArgonInput
+              v-model="endDateLocal"
+              type="date"
+              size="sm"
+              style="max-width: 11rem"
+            />
           </div>
         </div>
       </div>
@@ -510,7 +567,7 @@ defineExpose({ reloadFiles: loadPlanFiles });
             수정이력
           </ArgonButton>
           <ArgonButton
-            v-if="isViewMode() && has_supple && (isManagerRole || canManagePlan)"
+            v-if="isViewMode() && has_supple && isManagerRole"
             type="button"
             size="sm"
             variant="outline"
@@ -523,27 +580,29 @@ defineExpose({ reloadFiles: loadPlanFiles });
         </div>
         <div class="d-flex flex-wrap gap-2 justify-content-end">
           <template v-if="isViewMode()">
+            <!-- isApplicant: 결과가 한 건 이상 존재하는 경우에만 조회 가능. -->
+            <!-- isManagerRole / canManagePlan: 항상 출력. 단, 결과가 0건이면 '결과추가' 텍스트로 출력. -->
             <ArgonButton
-              v-if="plan_result === 'e0_10'"
+              v-if="showResultButton"
               type="button"
               size="sm"
               color="primary"
               @click="emit('result', plan_code)"
             >
-              결과조회
+              {{ resultButtonLabel }}
             </ArgonButton>
             <ArgonButton
-              v-if="canManagePlan && canShowExtend()"
+              v-if="!isApplicant && canShowExtend()"
               type="button"
               size="sm"
               variant="outline"
               color="info"
-              @click="emit('extend', plan_code)"
+              @click="openExtendModal"
             >
               연장
             </ArgonButton>
             <ArgonButton
-              v-if="canManagePlan && canShowEnd()"
+              v-if="!isApplicant && canShowEnd()"
               type="button"
               size="sm"
               variant="outline"
@@ -562,7 +621,7 @@ defineExpose({ reloadFiles: loadPlanFiles });
               수정
             </ArgonButton>
             <ArgonButton
-              v-if="plan_result === 'e0_80' && !isApplicant"
+              v-if="plan_result === 'e0_80' && isManagerRole"
               type="button"
               size="sm"
               color="primary"
@@ -674,6 +733,59 @@ defineExpose({ reloadFiles: loadPlanFiles });
         </span>
       </div>
     </div>
+
+    <!-- 연장 모달: 종료일 선택 후 완료 시 종료일 업데이트 -->
+    <Teleport to="body">
+      <Transition name="extend-modal-fade">
+        <div
+          v-if="showExtendModal"
+          class="extend-modal-backdrop"
+          @click.self="closeExtendModal"
+        >
+          <div class="extend-modal-dialog">
+            <div class="extend-modal-header">
+              <span class="extend-modal-title">지원계획 연장</span>
+              <button
+                type="button"
+                class="extend-modal-close btn btn-sm btn-link text-white p-0"
+                aria-label="닫기"
+                @click="closeExtendModal"
+              >
+                ×
+              </button>
+            </div>
+            <div class="extend-modal-body">
+              <label class="form-label text-sm mb-1">종료일자</label>
+              <ArgonInput
+                v-model="extendEndDateLocal"
+                type="date"
+                size="sm"
+                class="mb-3"
+              />
+              <div class="d-flex justify-content-end gap-2">
+                <ArgonButton
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  color="secondary"
+                  @click="closeExtendModal"
+                >
+                  취소
+                </ArgonButton>
+                <ArgonButton
+                  type="button"
+                  size="sm"
+                  color="info"
+                  @click="confirmExtend"
+                >
+                  완료
+                </ArgonButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -718,5 +830,51 @@ defineExpose({ reloadFiles: loadPlanFiles });
   min-height: 6rem;
   max-height: 6rem;
   resize: none;
+}
+
+/* 연장 모달 */
+.extend-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1060;
+}
+.extend-modal-dialog {
+  background: #fff;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.2);
+  width: min(92vw, 400px);
+  overflow: hidden;
+}
+.extend-modal-header {
+  background: #0dcaf0;
+  color: #fff;
+  padding: 0.65rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.extend-modal-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.extend-modal-close {
+  font-size: 1.25rem;
+  line-height: 1;
+  text-decoration: none;
+}
+.extend-modal-body {
+  padding: 1rem;
+}
+.extend-modal-fade-enter-active,
+.extend-modal-fade-leave-active {
+  transition: opacity 0.18s ease;
+}
+.extend-modal-fade-enter-from,
+.extend-modal-fade-leave-to {
+  opacity: 0;
 }
 </style>
