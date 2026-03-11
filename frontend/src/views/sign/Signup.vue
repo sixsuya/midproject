@@ -692,20 +692,6 @@ const searchAddress = () => {
                     {{ item.organ_name }}
                   </option>
                 </select>
-                <!-- 기관 선택 테스트 -->
-                <div v-if="institutions.length > 0" class="mt-3">
-                  <label class="form-label">아래 기관을 선택해주세요</label>
-                  <select v-model="selectedInstitution" class="form-control">
-                    <option value="">기관 선택</option>
-                    <option
-                      v-for="inst in institutions"
-                      :key="inst.inst_id"
-                      :value="inst.inst_id"
-                    >
-                      {{ inst.inst_name }}
-                    </option>
-                  </select>
-                </div>
                 <div class="text-center mt-4">
                   <ArgonButton
                     type="submit"
