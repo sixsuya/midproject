@@ -35,7 +35,7 @@ jobs:
           
       - name: Copy built files to server
         run: |
-          rsync -avz ./backend/public/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/project/backend/public/
+          rsync -avz ./backend/public/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/midproject/backend/public/
 
       - name: SSH into server and deploy
         run: |
