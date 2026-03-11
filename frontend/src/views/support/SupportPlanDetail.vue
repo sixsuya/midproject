@@ -98,12 +98,12 @@ const showResultButton = computed(
   () =>
     props.plan_result === "e0_10" &&
     (isApplicant.value
-      ? (props.resultCountForPlan != null && props.resultCountForPlan >= 1)
+      ? props.resultCountForPlan != null && props.resultCountForPlan >= 1
       : true),
 );
 /** 결과 버튼 라벨: 결과가 1건 이상이면 '결과조회', 0건이면 '결과추가' (담당/관리자만 0건 시 결과추가) */
 const resultButtonLabel = computed(() =>
-  (props.resultCountForPlan != null && props.resultCountForPlan >= 1)
+  props.resultCountForPlan != null && props.resultCountForPlan >= 1
     ? "결과조회"
     : "결과추가",
 );
@@ -192,7 +192,7 @@ function canShowExtend() {
 }
 
 /**
- * 종료 버튼 표시 여부: 승인(e0_10) 상태이고, 종료일이 있고 아직 지나지 않은 경우(오늘 <= 종료일)에만 표시.
+ * 종료 버튼 표시 여부: 승인(e0_10) 상태이고, 종료일이 있고 아직 지나지 않은 경우(오늘 < 종료일)에만 표시.
  * 종료일을 넘겼거나 종료일이 없으면 노출 금지.
  */
 function canShowEnd() {
@@ -205,7 +205,7 @@ function canShowEnd() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   end.setHours(0, 0, 0, 0);
-  return today <= end;
+  return today < end;
 }
 
 /** 수정 모드에서 파일 선택 input 값이 바뀌면 editFiles 목록 갱신 (10MB 초과 시 AlertModal로 에러 표시) */
