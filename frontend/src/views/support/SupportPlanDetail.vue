@@ -100,11 +100,6 @@ const showResultButton = computed(
   () =>
    {if (props.plan_result !== "e0_10") return false;
 
-  if (isApplicant.value) {
-    // 지원자는 승인된 결과가 있을 때만 버튼 표시
-    return (props.resultCountForPlan ?? 0) >= 1;
-  }
-
   // 담당자/관리자는 항상 표시
   return true;}
 );
