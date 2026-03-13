@@ -1,92 +1,37 @@
-# midproject
+# 프로젝트명 : 발달장애인 지원 프로그램
 
-1차 프로젝트
-- main branch는 최종 배포를 위한 branch
-- develop branch는 개인별 작업물을 통합하는 branch
-- git pull을 할때는 develop branch(모두의 작업물이 합쳐진 것)을 가져와서 작업을 시작하고 작업이 끝나면 개인 branch에 push한 뒤에 git 관리자에게 pull request(develop branch에 합쳐달라는 요청)을 하는 순서
-- git 관리자는 요청이 들어온 것을 합치는 과정 진행
+## 개요
+ - ### 01 프로젝트 개요
+ - 발달 장애인 지원의 접근성 증대와 업무 간편화 및 전산화를 위한 웹 기반 통합 관리 페이지
+ - *·* 접근성 증대: 서면 작업이 아닌 온라인을 통해 신청이 가능해져 접근성이 좋다.
+ - *·* 업무 효능 상승: 업무 절차와 결재 방식이 흐름대로 진행이 되기에 복잡성이 줄어들었다.
+ - *·* 전산화: 서면 작업이 아니라 전산화를 통해 이력 관리가 편해지고 문서 조회와 저장이 좋아졌다.
+ - ### 02 개발동기
+ - 발달장애인을 돕는 정부 지원 프로그램에 대한 접근성을 쉽게할 필요성을 느꼈고 관련 업무를 전산화하여 관리해 명확하고 빠른 업무 진행을 위해 개발을 하게 되었습니다.
+ - ### 03 기대효과
+ - 지원자가 자신의 지원에 대한 진행 파악 편리 : 자신이 신청한 지원에 대해서 어떻게 처리가 되고있고 어떤 결과를 받았는지 쉽게 파악 가능 
+ - 전산화를 통한 문서 관리 : 수정이력과 승인 이력이 전산상으로 남아있어 각 지원에 대한 진행상황이나 누가 언제 업무를 처리했는지 파악 가능  
+ - 공간 및 시간적 제약 극복 : 시간이나 특정 장소에 얽메이지않고 인터넷을 통해 지원 신청과 지원 관련 업무를 진행할 수 있음
+
+## 팀원
+ - 박상원(팀장)
+ - 김진환(부팀장)
+ - 양현규
+ - 육성수
+
+## 개발 기간
+ - 전체 개발 기간 : 2026.02.09 ~ 2026.03.13
+ - 설계 기간 : 2026.02.09 ~ 2026.02.18
+ - 구현 기간 : 2026.02.19 ~ 2026.03.05
+ - 배포 및 테스트 : 2026.03.06 ~ 2026.03.12
+ - 발표 준비 : 2026.03.12 ~ 2026.03.13
+ - 프로젝트 발표 : 2026.03.13
+
+## 커밋 메시지 형식
+ - (이름 MMdd 작업내용 )
+ - EX) 박상원 0209 README.md 작성
 
 
-# 2️⃣ Git 운영 규칙 문서 (팀 공지용)
-
-## 📌 Git 운영 정책
-
-### 1. main 브랜치
-- 직접 push 금지
-- PR로만 merge 가능
-- 항상 배포 가능 상태 유지
-
-### 2. develop 브랜치
-- 직접 push 금지
-- feature 브랜치 → PR → merge
-- ## 📌 절대 금지
-git push origin main
-git merge develop (로컬에서 강제 병합 후 push)
-
-### 3. 개인 브랜치 규칙
-형식: feature/이름_기능
-예:
-
-feature/seongsu_login
-
-feature/jinhwan_dbconnect
 
 
-### ✔ 작업 시작 전
-```bash
-git checkout develop
-git pull origin develop
-git checkout -b feature/이름_기능
 
-✔ 작업 후
-git add .
-git commit -m "feat: 로그인 기능 구현"
-git push -u origin feature/이름_기능
-
-✔ Pull Request
-
-base: develop
-
-PR 제목: [feat] 로그인 기능
-
-설명: 구현 내용, 테스트 방법 작성
-
-* 커밋 메시지 규칙
--feat :	기능 추가
--fix	 : 버그 수정
--refactor	: 코드 개선
--style	 : UI 변경
--docs :	문서 수정
-
-4️⃣ Git 담당자 운영 체크리스트 (육성수)
-🔹 매일 확인
-
- PR 대기 목록 확인
-
- develop 실행 테스트
-
- 충돌 여부 확인
-
- router.js 충돌 점검
-
-🔹 Merge 전 체크
-
-PR 설명 확인
-
-코드 diff 확인
-
-npm run dev 실행 테스트
-
-콘솔 에러 체크
-
-DB 변경 여부 확인
-
-🔹 충돌 발생 시
-git checkout develop
-git pull origin develop
-git checkout feature/브랜치명
-git merge develop
-
-충돌 해결 → commit → push
-
-<img width="1150" height="1524" alt="git-model@2x" src="https://github.com/user-attachments/assets/f899e618-8bcd-4353-8bd1-f3c1ae44672e" />
